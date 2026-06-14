@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qt学习 — QSharedPointer / QScopedPointer / QPointer</title>
+<style>
+body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #1a1a1a; }
+.tab-btn { font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 0.5px solid #d3d1c7; background: transparent; cursor: pointer; font-family: inherit; }
+.tab-btn.active { background: #f1efe8; font-weight: 500; }
+code { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 12px; background: #f1efe8; padding: 1px 4px; border-radius: 3px; }
+pre { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 12px; background: #f1efe8; padding: 12px; border-radius: 8px; overflow-x: auto; line-height: 1.6; white-space: pre; margin: 8px 0; }
+.api-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 0.5px solid #e8e8e8; font-size: 12px; }
+.api-row:last-child { border-bottom: none; }
+.api-name { font-family: 'SF Mono', Consolas, monospace; color: #185FA5; min-width: 220px; flex-shrink: 0; }
+.api-desc { color: #5f5e5a; }
+.tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+.tag-core { background: #E6F1FB; color: #185FA5; }
+.tag-gui { background: #EAF3DE; color: #3B6D11; }
+.tag-widget { background: #FAEEDA; color: #854F0B; }
+.tag-warn { background: #FCEBEB; color: #A32D2D; }
+table { border-collapse: collapse; font-size: 12px; width: 100%; margin: 8px 0; }
+th, td { border: 0.5px solid #d3d1c7; padding: 6px 10px; text-align: left; }
+th { background: #f1efe8; font-weight: 500; }
+.compass { background: #f1efe8; border-radius: 8px; padding: 16px; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; line-height: 1.9; }
+.life-demo { background: #f1efe8; border-radius: 8px; padding: 12px; margin-top: 8px; }
+.life-bar { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; }
+.life-label { min-width: 80px; font-family: 'SF Mono', Consolas, monospace; color: #5f5e5a; }
+.life-track { flex: 1; background: rgba(0,0,0,0.06); border-radius: 3px; height: 18px; position: relative; overflow: hidden; }
+.life-fill { height: 100%; background: linear-gradient(90deg, #41d3ff, #185FA5); border-radius: 3px; transition: width 0.2s; }
+.life-alive { background: linear-gradient(90deg, #6FCF97, #3B6D11); }
+.life-dead { background: linear-gradient(90deg, #D9A0A0, #A32D2D); }
+.life-count { min-width: 80px; text-align: right; font-family: 'SF Mono', Consolas, monospace; font-size: 11px; }
+.btn { font-size: 12px; padding: 5px 12px; border-radius: 6px; border: 0.5px solid #d3d1c7; background: #fff; cursor: pointer; font-family: inherit; }
+.btn:hover { background: #f1efe8; }
+.btn-primary { background: #185FA5; color: #fff; border-color: #185FA5; }
+.btn-primary:hover { background: #134a85; }
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.log-box { background: #1a1a1a; color: #e0e0e0; border-radius: 6px; padding: 10px; font-family: 'SF Mono', Consolas, monospace; font-size: 11px; max-height: 240px; overflow-y: auto; line-height: 1.6; margin-top: 8px; }
+.log-box p { margin: 0; }
+.log-alloc { color: #41d3ff; }
+.log-share { color: #6FCF97; }
+.log-free { color: #c77dff; }
+.log-qobj { color: #FAEEDA; }
+.log-warn { color: #EB6F6F; }
+.circle-obj { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<div style="max-width: 760px;">
+<div style="margin-bottom: 16px;">
+  <h1 style="font-size: 15px; font-weight: 500; margin: 0 0 4px 0;">QSharedPointer / QScopedPointer / QPointer</h1>
+  <p style="font-size: 13px; color: #5f5e5a; margin: 0;">Qt 智能指针三剑客 — 不靠对象树也能安全地管理内存</p>
+</div>
+
+<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;" id="tabBar">
+  <button onclick="switchTab(0)" class="tab-btn active">概念与定位</button>
+  <button onclick="switchTab(1)" class="tab-btn">QSharedPointer</button>
+  <button onclick="switchTab(2)" class="tab-btn">QScopedPointer</button>
+  <button onclick="switchTab(3)" class="tab-btn">QPointer</button>
+  <button onclick="switchTab(4)" class="tab-btn">生命周期沙盘</button>
+  <button onclick="switchTab(5)" class="tab-btn">常用API</button>
+  <button onclick="switchTab(6)" class="tab-btn">实战与避坑</button>
+</div>
+
+<div id="tabContent" style="min-height: 360px;"></div>
+</div>
+
+<script>
+const tabs = [];
+
+tabs[0] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">为什么需要智能指针？</h2>
+    <p style="color: #5f5e5a; margin: 0 0 12px 0;">
+      Qt 提供了 <code>QObject</code> <strong>父子对象树</strong>机制：父对象析构时会自动 <code>delete</code> 所有子对象。
+      但这只对 <code>QObject</code> 派生类生效，且只能形成 <strong>树形</strong>（一个孩子只能有一个父亲）。
+      实际开发中，你经常要管理：
+    </p>
+    <ul style="color: #5f5e5a; margin: 0 0 12px 20px; font-size: 12px;">
+      <li><strong>非 QObject 资源</strong>（自定义 struct、第三方库句柄、缓存对象）</li>
+      <li><strong>共享所有权</strong>：同一份数据被多处持有（Model 多个 View、配置树）</li>
+      <li><strong>跨线程</strong>传递的指针（信号槽连接、异步任务）</li>
+      <li><strong>循环引用</strong>：树形无法表达 A 持有 B、B 也持有 A</li>
+    </ul>
+    <p style="color: #5f5e5a; margin: 0 0 16px 0;">
+      这时就需要 <strong>智能指针</strong>。Qt 提供三把剑，各司其职：
+    </p>
+
+    <div style="background: #f1efe8; border-radius: 8px; padding: 16px; margin-bottom: 16px; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; line-height: 2.1;">
+      <div><span style="color: #5f5e5a;">// 三种智能指针的"性格画像"</span></div>
+      <div><span style="color: #185FA5; font-weight: 500;">QSharedPointer&lt;T&gt;</span>  &nbsp;<span class="tag tag-core">引用计数</span></div>
+      <div style="color: #5f5e5a; padding-left: 16px;">→ 多个指针共享同一对象，最后一个走开时 delete。线程安全的引用计数（Qt 6）。</div>
+      <div><span style="color: #3B6D11; font-weight: 500;">QScopedPointer&lt;T&gt;</span>  &nbsp;<span class="tag tag-gui">独占 RAII</span></div>
+      <div style="color: #5f5e5a; padding-left: 16px;">→ 类似 std::unique_ptr，出作用域自动 delete。不可拷贝、零开销。</div>
+      <div><span style="color: #854F0B; font-weight: 500;">QPointer&lt;T&gt;</span>  &nbsp;<span class="tag tag-widget">观察者</span></div>
+      <div style="color: #5f5e5a; padding-left: 16px;">→ 包装 QObject*，目标被 delete 后自动置 nullptr。不拥有对象。</div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">与 std:: 智能指针的关系</h2>
+    <table>
+      <thead>
+        <tr><th>Qt 智能指针</th><th>std:: 对应</th><th>特性差异</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>QSharedPointer&lt;T&gt;</code></td><td><code>std::shared_ptr&lt;T&gt;</code></td><td>接口几乎一致；Qt 版本提供 <code>qHash</code> / <code>QDebug</code> 支持、自动注册到元对象系统</td></tr>
+        <tr><td><code>QScopedPointer&lt;T&gt;</code></td><td><code>std::unique_ptr&lt;T&gt;</code></td><td>Q 版本不要求 C++11 头文件；接口略少；常用于 Qt 兼容代码</td></tr>
+        <tr><td><code>QWeakPointer&lt;T&gt;</code></td><td><code>std::weak_ptr&lt;T&gt;</code></td><td>配对 QSharedPointer 使用，打破循环引用</td></tr>
+        <tr><td><code>QPointer&lt;T&gt;</code></td><td>无对应</td><td>专门包装 <strong>QObject*</strong>，是 Qt 独有的"哑指针守护者"</td></tr>
+      </tbody>
+    </table>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">决策流程图</h2>
+    <div class="compass">
+      <span style="color: #5f5e5a;">// 选择哪个？</span><br>
+      1. 对象是 QObject 派生类，且有明确父对象？<br>
+      &nbsp;&nbsp;→ <span style="color: #3B6D11;">交给对象树</span>，无需智能指针<br>
+      2. 多个地方要共享同一份资源？<br>
+      &nbsp;&nbsp;→ <span style="color: #185FA5;">QSharedPointer</span>（必要时配 QWeakPointer 打破环）<br>
+      3. 独占所有权，作用域结束就释放？<br>
+      &nbsp;&nbsp;→ <span style="color: #3B6D11;">QScopedPointer</span><br>
+      4. 只持有 QObject 指针，怕它被别人 delete 掉？<br>
+      &nbsp;&nbsp;→ <span style="color: #854F0B;">QPointer</span>（不接管所有权）
+    </div>
+  </div>`;
+};
+
+tabs[1] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QSharedPointer — 引用计数共享指针</h2>
+    <p style="color: #5f5e5a; margin: 0 0 12px 0;">
+      头文件 <code>&lt;QSharedPointer&gt;</code>。内部维护一个<strong>控制块</strong>（含引用计数 + 删除器 + 分配器），
+      拷贝即 +1、析构即 -1，归零时调用删除器释放对象。
+    </p>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">基础用法</h2>
+    <pre>// 构造：可用 makeShared（C++14 起）或直接 new
+auto p1 = QSharedPointer&lt;QFile&gt;::create("data.txt");
+QSharedPointer&lt;QFile&gt; p2(new QFile("log.txt"));
+
+// 拷贝共享 — 引用计数自动 +1
+QSharedPointer&lt;QFile&gt; p3 = p1;
+qDebug() &lt;&lt; p1.data() &lt;&lt; p3.data();   // 同一地址
+qDebug() &lt;&lt; p1.use_count();             // 2
+
+// 最后一个 shared 析构时，QFile 才被 delete
+p1.reset();   // 引用计数 1
+p3.reset();   // 引用计数 0 → 触发 ~QFile()
+
+// 解引用 / 取裸指针
+QFile *raw = p2.data();           // 不转移所有权
+*p2;                              // operator*()
+p2-&gt;readAll();                    // operator-&gt;()</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">自定义删除器</h2>
+    <pre>// 场景：管理非 new 分配的资源，或需要在释放时做额外动作
+QSharedPointer&lt;FILE&gt; fp(
+    std::fopen("a.txt", "r"),
+    [](FILE *f) {                  // 自定义删除器
+        if (f) std::fclose(f);
+    });
+
+// 数组：传 Deleter 标识 T[] 重载
+QSharedPointer&lt;int&gt; arr(new int[10],
+    [](int *p) { delete[] p; });</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">QWeakPointer 打破循环</h2>
+    <pre>struct Node {
+    QString name;
+    QSharedPointer&lt;Node&gt; child;     // 强引用
+    QWeakPointer&lt;Node&gt; parent;      // 弱引用：不增加计数
+};
+auto root = QSharedPointer&lt;Node&gt;::create();
+root-&gt;name = "root";
+auto child = QSharedPointer&lt;Node&gt;::create();
+child-&gt;name = "child";
+child-&gt;parent = root;                 // 弱引用，不延寿
+root-&gt;child = child;                  // 强引用
+// root.reset() 后 child 仍能存活；child.reset() 后 root 才真正释放</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">Q_ENABLE_SHARED_POINTER — 安全管理 QObject</h2>
+    <pre>// 头文件中（必须 public 区域）
+class MyWidget : public QWidget {
+    Q_OBJECT
+    Q_ENABLE_SHARED_POINTER  // Qt 6.5+：禁止栈上 new + 裸指针管理
+public:
+    explicit MyWidget(QWidget *parent = nullptr);
+    ~MyWidget() override;
+private:
+    QSharedPointer&lt;Helper&gt; m_helper;   // 可安全持有指向本对象外部资源的指针
+};</pre>
+    <p style="color: #5f5e5a; font-size: 12px; margin: 0;">
+      该宏使得 <code>QSharedPointer</code> 内部使用 <code>QObject</code> 析构而非 <code>delete</code>，
+      兼容 QObject 的元对象系统（避免动态转型失败、信号连接残留）。
+    </p>
+  </div>`;
+};
+
+tabs[2] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QScopedPointer — 轻量独占指针</h2>
+    <p style="color: #5f5e5a; margin: 0 0 12px 0;">
+      头文件 <code>&lt;QScopedPointer&gt;</code>。行为类似 <code>std::unique_ptr</code>：
+      <strong>独占所有权、不可拷贝、零开销</strong>，出作用域自动释放。适合"用完即弃"的资源。
+    </p>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">基础用法</h2>
+    <pre>{
+    QScopedPointer&lt;QFile&gt; fp(new QFile("temp.log"));
+    if (!fp-&gt;open(QIODevice::WriteOnly)) {
+        return;   // 析构：fp 自动 delete QFile
+    }
+    fp-&gt;write("hello");
+    // ...
+}   // ← 离开作用域 → 自动调用 ~QFile() → 关闭文件</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">自定义删除器</h2>
+    <pre>// 形式 1：模板参数
+QScopedPointer&lt;FILE, QFileCloser&gt; fp(std::fopen("a.log", "w"));
+// 形式 2：lambda（需 C++11）— 实际等价于 unique_ptr
+auto closer = [](QFile *f) { f-&gt;close(); delete f; };
+QScopedPointer&lt;QFile, decltype(closer)&gt; fp(new QFile, closer);</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">与 unique_ptr 的取舍</h2>
+    <table>
+      <thead>
+        <tr><th>维度</th><th>QScopedPointer</th><th>std::unique_ptr</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>C++ 标准</td><td>C++98 起可用</td><td>C++11 起</td></tr>
+        <tr><td>与 Qt 类型协作</td><td>支持自定义删除器 + 数组特化</td><td>更灵活，支持 move / 自定义删除器 / make_unique</td></tr>
+        <tr><td>move 语义</td><td>无（不可转移所有权）</td><td>有（unique_ptr 可 move）</td></tr>
+        <tr><td>数组特化</td><td><code>QScopedPointer&lt;int[]&gt;</code> 编译期识别 <code>delete[]</code></td><td>同 <code>unique_ptr&lt;T[]&gt;</code></td></tr>
+        <tr><td>建议</td><td>Qt 老代码、需与 QObject 生态强耦合时</td><td>新项目首选（C++11+）</td></tr>
+      </tbody>
+    </table>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">实战 1：异常安全的局部资源</h2>
+    <pre>bool exportData(const QString &amp;path) {
+    QScopedPointer&lt;QTemporaryFile&gt; tmp(new QTemporaryFile);
+    if (!tmp-&gt;open()) return false;
+    writeData(tmp.data());
+    // 任何早 return / 异常 → tmp 自动清理临时文件
+    return tmp-&gt;commit();
+}</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">实战 2：PIMPL 惯用法</h2>
+    <pre>// widget.h
+class WidgetPrivate;
+class Widget : public QWidget {
+    QScopedPointer&lt;WidgetPrivate&gt; d_ptr;
+public:
+    explicit Widget(QWidget *parent = nullptr);
+    ~Widget() override;
+private:
+    Q_DECLARE_PRIVATE(Widget);
+};
+// widget.cpp
+struct WidgetPrivate {
+    QHash&lt;QString, int&gt; cache;
+    QTimer *ticker;
+};
+Widget::Widget(QWidget *p) : QWidget(p), d_ptr(new WidgetPrivate) {}
+Widget::~Widget() = default;   // d_ptr 自动 delete WidgetPrivate</pre>
+  </div>`;
+};
+
+tabs[3] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QPointer — QObject 的"安全观测者"</h2>
+    <p style="color: #5f5e5a; margin: 0 0 12px 0;">
+      头文件 <code>&lt;QPointer&gt;</code>。它<strong>不拥有</strong>对象，只是一个智能包装的 <code>QObject*</code>：
+      当目标对象被 <code>delete</code> 后，<code>QPointer</code> 自动变为 <code>nullptr</code>。
+      解决了"我手里有个指针，怎么知道它还活着"的问题。
+    </p>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">基础用法</h2>
+    <pre>QPointer&lt;QLabel&gt; label = new QLabel("hello", this);
+// ...
+if (label) {                       // 自动判空！被 delete 后为 false
+    label-&gt;setText("world");
+}
+// 父窗口关闭 → label 被 delete → label 自动 == nullptr
+// 之后访问 label-&gt;setText(...) 不会崩，等同于 no-op</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">实现原理</h2>
+    <p style="color: #5f5e5a; font-size: 12px; margin: 0 0 8px 0;">
+      QPointer 在构造时调用 <code>QObjectPrivate::setCurrentQObjectPtrWatcher</code>，
+      把自身注册到目标对象内部的"指针观察者链表"。QObject 析构时遍历链表，把所有 QPointer 置 nullptr。
+      几乎零运行时开销，析构时一次性通知。
+    </p>
+
+    <div class="compass" style="margin-bottom: 16px;">
+      <span style="color: #5f5e5a;">// 内存示意</span><br>
+      <span style="color: #854F0B;">QObject 内部</span>：<br>
+      &nbsp;&nbsp;├── ... 自有数据 ...<br>
+      &nbsp;&nbsp;└── <span style="color: #c77dff;">QObjectPrivate::sharedRefcount</span> ← QPointer 链入此处<br>
+      <br>
+      <span style="color: #854F0B;">QPointer 实例</span>：<br>
+      &nbsp;&nbsp;├── o = &lt;指向 QObject&gt;  // 正常时<br>
+      &nbsp;&nbsp;└── o = nullptr          // 目标被 delete 后
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">典型场景</h2>
+    <div style="font-size: 12px; line-height: 1.8;">
+      <p style="margin: 0 0 4px 0;"><strong>1. 单例缓存的弱引用</strong></p>
+      <pre>QPointer&lt;MainWindow&gt; g_mainWindow;
+void showMain() {
+    if (!g_mainWindow) g_mainWindow = new MainWindow;
+    g_mainWindow-&gt;show();
+    g_mainWindow-&gt;raise();
+}</pre>
+
+      <p style="margin: 12px 0 4px 0;"><strong>2. 异步回调中持有 UI 指针</strong></p>
+      <pre>void NetworkManager::onReply(QNetworkReply *r) {
+    QPointer&lt;QLabel&gt; safe = statusLabel_;   // 拍快照
+    connect(r, &amp;QNetworkReply::finished, this, [safe, r]() {
+        if (safe) safe-&gt;setText("done");     // 标签可能已被父窗口 delete
+        r-&gt;deleteLater();
+    });
+}</pre>
+
+      <p style="margin: 12px 0 4px 0;"><strong>3. 替代裸指针成员变量</strong></p>
+      <pre>class Controller : public QObject {
+    QPointer&lt;SettingsDialog&gt; m_dialog;       // 安全成员
+public:
+    void openSettings() {
+        if (!m_dialog) m_dialog = new SettingsDialog(this);
+        m_dialog-&gt;show();
+    }
+};</pre>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">QPointer 的局限</h2>
+    <ul style="color: #5f5e5a; margin: 0 0 0 20px; font-size: 12px;">
+      <li>只能包装 <strong>QObject 派生类</strong>；非 QObject 用 QSharedPointer / QWeakPointer</li>
+      <li>不参与引用计数，<strong>不延寿</strong>目标对象</li>
+      <li>不能用 <code>std::hash</code> 放入无序容器（Qt 6 起提供 <code>qHash(QPointer&lt;T&gt;)</code>）</li>
+      <li>多线程访问同一 QPointer 需自己加锁</li>
+    </ul>
+  </div>`;
+};
+
+tabs[4] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">生命周期沙盘 — 观察三种指针的行为</h2>
+    <p style="color: #5f5e5a; margin: 0 0 12px 0;">
+      点击按钮创建/复制/重置不同类型的智能指针，观察<strong>引用计数</strong>和<strong>对象生存期</strong>的变化。
+    </p>
+
+    <div class="life-demo" id="lifeDemo">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div>
+          <div style="font-weight: 500; font-size: 12px; margin-bottom: 4px;"><span class="circle-obj" style="background: #185FA5;"></span>对象 A (QObject 派生)</div>
+          <div class="life-bar">
+            <div class="life-label">refcount</div>
+            <div class="life-track"><div class="life-fill" id="cntFill" style="width: 0%;"></div></div>
+            <div class="life-count" id="cntText">0</div>
+          </div>
+          <div class="life-bar">
+            <div class="life-label">对象状态</div>
+            <div class="life-track"><div class="life-fill life-alive" id="aliveFill" style="width: 100%;"></div></div>
+            <div class="life-count" id="aliveText">未创建</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-weight: 500; font-size: 12px; margin-bottom: 4px;">持有的指针</div>
+          <div class="life-bar"><div class="life-label">sp1 (shared)</div><div class="life-track"><div class="life-fill" id="sp1Fill" style="width: 0%; background: #185FA5;"></div></div><div class="life-count" id="sp1Text">null</div></div>
+          <div class="life-bar"><div class="life-label">sp2 (shared)</div><div class="life-track"><div class="life-fill" id="sp2Fill" style="width: 0%; background: #41d3ff;"></div></div><div class="life-count" id="sp2Text">null</div></div>
+          <div class="life-bar"><div class="life-label">scoped</div><div class="life-track"><div class="life-fill" id="scopedFill" style="width: 0%; background: #3B6D11;"></div></div><div class="life-count" id="scopedText">null</div></div>
+          <div class="life-bar"><div class="life-label">weak</div><div class="life-track"><div class="life-fill" id="weakFill" style="width: 0%; background: #c77dff;"></div></div><div class="life-count" id="weakText">null</div></div>
+          <div class="life-bar"><div class="life-label">qptr (QObject)</div><div class="life-track"><div class="life-fill" id="qptrFill" style="width: 0%; background: #854F0B;"></div></div><div class="life-count" id="qptrText">null</div></div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="simCreate()">1. 创建 QObject A</button>
+        <button class="btn" onclick="simWrapShared()">2. 用 QSharedPointer 包装</button>
+        <button class="btn" onclick="simCopy()">3. 复制 sp1 → sp2</button>
+        <button class="btn" onclick="simWeak()">4. qptr 改用 QPointer</button>
+        <button class="btn" onclick="simScoped()">5. 新建 QScopedPointer</button>
+        <button class="btn" onclick="simDelete()">6. 外部 delete A</button>
+        <button class="btn" onclick="simReset()">7. sp1.reset()</button>
+        <button class="btn" onclick="simScopedExit()">8. scoped.reset()</button>
+        <button class="btn" onclick="simClear()">重置沙盘</button>
+      </div>
+
+      <div class="log-box" id="logBox">
+        <p style="color: #888;">// 操作日志（点击按钮开始演示）</p>
+      </div>
+    </div>
+  </div>`;
+};
+
+tabs[5] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QSharedPointer 核心方法</h2>
+    <div style="font-size: 12px; margin-bottom: 16px;">
+      <div class="api-row"><span class="api-name">QSharedPointer&lt;T&gt;::create(...)</span><span class="api-desc">工厂函数（C++14 起），比 new 更高效（控制块合并分配）</span></div>
+      <div class="api-row"><span class="api-name">data() / get()</span><span class="api-desc">返回裸指针，不转移所有权</span></div>
+      <div class="api-row"><span class="api-name">use_count()</span><span class="api-desc">当前引用计数（多线程下不保证绝对准确）</span></div>
+      <div class="api-row"><span class="api-name">reset(T* ptr = nullptr)</span><span class="api-desc">替换管理对象；旧对象计数 -1</span></div>
+      <div class="api-row"><span class="api-name">swap(QSharedPointer&amp;)</span><span class="api-desc">交换管理对象（O(1)）</span></div>
+      <div class="api-row"><span class="api-name">staticCast / dynamicCast / constCast</span><span class="api-desc">类型转换（与 std::shared_ptr 一致）</span></div>
+      <div class="api-row"><span class="api-name">isNull()</span><span class="api-desc">等价于 !data()</span></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QScopedPointer 核心方法</h2>
+    <div style="font-size: 12px; margin-bottom: 16px;">
+      <div class="api-row"><span class="api-name">reset(T* ptr = nullptr)</span><span class="api-desc">替换并 delete 旧对象</span></div>
+      <div class="api-row"><span class="api-name">take()</span><span class="api-desc">释放所有权并返回裸指针（不 delete）</span></div>
+      <div class="api-row"><span class="api-name">data() / get()</span><span class="api-desc">返回裸指针</span></div>
+      <div class="api-row"><span class="api-name">isNull()</span><span class="api-desc">是否为空</span></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QPointer 核心方法</h2>
+    <div style="font-size: 12px; margin-bottom: 16px;">
+      <div class="api-row"><span class="api-name">data() / get()</span><span class="api-desc">返回原始 QObject*（可能已为 nullptr）</span></div>
+      <div class="api-row"><span class="api-name">isNull()</span><span class="api-desc">目标是否已被 delete（核心能力）</span></div>
+      <div class="api-row"><span class="api-name">operator bool()</span><span class="api-desc">等价于 !isNull()</span></div>
+      <div class="api-row"><span class="api-name">clear()</span><span class="api-desc">解除观察（不 delete 目标）</span></div>
+      <div class="api-row"><span class="api-name">operator== / !=</span><span class="api-desc">与裸指针、QPointer 比较</span></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QWeakObserver / QSharedPointer 互操作</h2>
+    <div style="font-size: 12px;">
+      <div class="api-row"><span class="api-name">QWeakPointer&lt;T&gt;::toStrongRef()</span><span class="api-desc">尝试提升为强引用；对象已死则返回 null</span></div>
+      <div class="api-row"><span class="api-name">QSharedPointer&lt;T&gt;::fromWeakRef()</span><span class="api-desc">QSharedPointer(QWeakPointer) 构造的简写</span></div>
+      <div class="api-row"><span class="api-name">qHash(QPointer&lt;T&gt;)</span><span class="api-desc">Qt 6：可放入 QSet / QHash key</span></div>
+    </div>
+  </div>`;
+};
+
+tabs[6] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">实战 1：Model/View 多视图共享同一份数据</h2>
+    <pre>// 多个 View 共用同一份 Model：QSharedPointer 比裸指针更安全
+auto tableModel = QSharedPointer&lt;QStandardItemModel&gt;::create(4, 2);
+
+QTableView *v1 = new QTableView;
+QTableView *v2 = new QTableView;
+v1-&gt;setModel(tableModel.data());
+v2-&gt;setModel(tableModel.data());   // 两 view 共用同一模型
+
+// v1/v2 关闭只影响 view，model 不会释放
+// 最后一个持有 tableModel 的 shared 析构时，model 才释放</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">实战 2：缓存 + 自动失效（WeakPointer 模式）</h2>
+    <pre>class ImageCache {
+    QHash&lt;QString, QWeakPointer&lt;QImage&gt;&gt; m_cache;
+public:
+    QSharedPointer&lt;QImage&gt; get(const QString &amp;key) {
+        if (auto sp = m_cache.value(key).toStrongRef())
+            return sp;
+        auto img = QSharedPointer&lt;QImage&gt;::create(loadFromDisk(key));
+        m_cache.insert(key, img);
+        return img;
+    }
+    void prune() {
+        for (auto it = m_cache.begin(); it != m_cache.end(); )
+            it.value().toStrongRef() ? ++it : it = m_cache.erase(it);
+    }
+};</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">实战 3：跨线程安全传递</h2>
+    <pre>// 信号槽默认拷贝参数 — 智能指针安全（引用计数原子操作）
+emit resultReady(QSharedPointer&lt;DataBlock&gt;::create(std::move(data)));
+// 接收端：subThread-&gt;onResult(QSharedPointer&lt;DataBlock&gt; block);
+// 线程安全：Qt 6 起 QSharedPointer 引用计数用 std::atomic 保护</pre>
+
+    <div style="background: #FCEBEB; border-radius: 8px; padding: 12px; margin: 16px 0;">
+      <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0; color: #A32D2D;">避坑要点</h2>
+      <div style="font-size: 12px; color: #791F1F; line-height: 1.8;">
+        <p style="margin: 0 0 6px 0;"><strong>1. 同一裸指针交给两个 QSharedPointer 会重复 delete</strong> — 必须用 <code>::create()</code> 或 <code>new</code> 一次性让 QSharedPointer 接管。Q_ENABLE_SHARED_POINTER 宏会禁止这种裸指针构造。</p>
+        <pre style="background: #FAE6E6; color: #791F1F;">QFile *raw = new QFile;
+QSharedPointer&lt;QFile&gt; a(raw);
+QSharedPointer&lt;QFile&gt; b(raw);   // ❌ 同一裸指针被两个 shared 接管
+// 析构时 → 同一地址 delete 两次 → 崩溃</pre>
+        <p style="margin: 0 0 6px 0;"><strong>2. 循环引用 = 内存泄漏</strong> — 父子都用 QSharedPointer 互持，永远不归零。父用 shared、子用 weak，或改用对象树。</p>
+        <p style="margin: 0 0 6px 0;"><strong>3. 不要让 QSharedPointer 接管栈对象</strong> — 智能指针最终会 delete 一个栈地址，未定义行为。</p>
+        <p style="margin: 0 0 6px 0;"><strong>4. QPointer 的"假阳性"风险</strong> — QPointer 在对象析构后置空，但如果在多线程中对象的析构和读取未同步，可能短暂看到"还没置空"的旧值。用 <p style="margin: 0;">QPointer 需配合 <code>QObject::thread()</code> 检查或 <code>QMutex</code> 保护。</p>
+        <p style="margin: 0 0 6px 0;"><strong>5. QPointer 不替代 <code>deleteLater</code></strong> — 跨线程 delete QObject 必须用 <code>deleteLater()</code>，QPointer 只是把本地副本置空，不会发起 delete。</p>
+        <p style="margin: 0 0 6px 0;"><strong>6. this 指针别交给 QSharedPointer</strong> — 父对象（QObject）已经管理生命周期，<code>sharedFromThis()</code> 在没有 QSharedPointer 持有时是 UB。</p>
+        <p style="margin: 0 0 6px 0;"><strong>7. QScopedPointer 不可拷贝不可 move</strong> — 想"转移"所有权用 <code>std::unique_ptr</code>（支持 move）或 <code>take()</code> 取出裸指针。</p>
+        <p style="margin: 0 0 6px 0;"><strong>8. 引用计数开销不容忽视</strong> — 每次拷贝/析构都触发原子加减。对性能极敏感的"小对象高频传递"考虑传值或 move。</p>
+      </div>
+    </div>
+
+    <div style="background: #E1F5EE; border-radius: 8px; padding: 12px; margin: 16px 0 0 0;">
+      <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0; color: #0F6E56;">最佳实践</h2>
+      <div style="font-size: 12px; color: #085041; line-height: 1.8;">
+        <p style="margin: 0 0 4px 0;">1. 优先 <code>::create(...)</code>，避免裸指针 + shared 重复接管</p>
+        <p style="margin: 0 0 4px 0;">2. QObject 派生类：能挂父对象就挂父对象，不要 shared 一个有父的 QObject</p>
+        <p style="margin: 0 0 4px 0;">3. 共享/缓存场景用 QSharedPointer，缓存"占位"用 QWeakPointer</p>
+        <p style="margin: 0 0 4px 0;">4. 异步回调 / 单例辅助用 QPointer 而非裸 QObject*</p>
+        <p style="margin: 0 0 4px 0;">5. PIMPL / 局部 RAII 用 QScopedPointer（或 unique_ptr）</p>
+        <p style="margin: 0 0 4px 0;">6. 跨线程传递智能指针，Qt 6 默认安全（原子引用计数）</p>
+        <p style="margin: 0 0 4px 0;">7. 智能指针与 QObject 对象树<strong>不要混用</strong>：同一个对象不要既设父又交给 shared</p>
+        <p style="margin: 0 0 4px 0;">8. 需要在 QML 中使用智能指针？用 <code>Q_GADGET</code> + 包装类型</p>
+      </div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">与已学主题联动</h2>
+    <div style="font-size: 12px;">
+      <div class="api-row"><span class="api-name">+ QObject</span><span class="api-desc">父子对象树管理 QObject；非 QObject 用智能指针；不要混用</span></div>
+      <div class="api-row"><span class="api-name">+ QThread</span><span class="api-desc">跨线程传数据用 QSharedPointer（Qt 6 原子引用计数）</span></div>
+      <div class="api-row"><span class="api-name">+ QtConcurrent / QFuture</span><span class="api-desc">异步任务返回值用 QSharedPointer 包装</span></div>
+      <div class="api-row"><span class="api-name">+ QMimeData / 拖拽</span><span class="api-desc">QMimeData 内部用 QSharedPointer 持有图像/URL 数据</span></div>
+      <div class="api-row"><span class="api-name">+ PIMPL</span><span class="api-desc">QScopedPointer 是 PIMPL 私有实现类的事实标准</span></div>
+    </div>
+  </div>`;
+};
+
+// ===== 生命周期沙盘 =====
+let sim = {
+  objAlive: false,
+  refcount: 0,
+  sp1: false, sp2: false, scoped: false, weak: false, qptr: false,
+  weakBound: false  // QWeakPointer 必须有源 QSharedPointer 才能 lock
+};
+
+function log(msg, cls = '') {
+  const box = document.getElementById('logBox');
+  if (!box) return;
+  if (box.firstElementChild && box.firstElementChild.style.color === 'rgb(136, 136, 136)') {
+    box.innerHTML = '';
+  }
+  const p = document.createElement('p');
+  p.className = cls;
+  p.textContent = msg;
+  box.appendChild(p);
+  box.scrollTop = box.scrollHeight;
+}
+
+function updateUI() {
+  const setBar = (id, on, labelOn, labelOff) => {
+    const f = document.getElementById(id);
+    const t = document.getElementById(id.replace('Fill', 'Text'));
+    if (!f || !t) return;
+    f.style.width = on ? '100%' : '0%';
+    t.textContent = on ? labelOn : labelOff;
+  };
+  // 对象 A
+  const cf = document.getElementById('cntFill');
+  const ct = document.getElementById('cntText');
+  if (cf && ct) {
+    cf.style.width = sim.refcount > 0 ? Math.min(sim.refcount * 50, 100) + '%' : '0%';
+    ct.textContent = sim.refcount;
+  }
+  const af = document.getElementById('aliveFill');
+  const at = document.getElementById('aliveText');
+  if (af && at) {
+    af.className = 'life-fill ' + (sim.objAlive ? 'life-alive' : 'life-dead');
+    af.style.width = sim.objAlive ? '100%' : '0%';
+    at.textContent = sim.objAlive ? '存活' : '已销毁';
+  }
+  setBar('sp1Fill', sim.sp1, '持有', 'null');
+  setBar('sp2Fill', sim.sp2, '持有', 'null');
+  setBar('scopedFill', sim.scoped, '持有', 'null');
+  setBar('weakFill', sim.weakBound, '可提升', 'null');
+  setBar('qptrFill', sim.qptr && sim.objAlive, sim.objAlive ? '指向 A' : '已置空', sim.objAlive ? '指向 A' : 'null');
+  // QPointer 文本要反映 objAlive
+  const qp = document.getElementById('qptrText');
+  if (qp) qp.textContent = (sim.qptr && sim.objAlive) ? '指向 A' : (sim.qptr ? 'null' : 'null');
+}
+
+function simCreate() {
+  sim.objAlive = true;
+  log('new QObject("A") — 分配堆对象 A', 'log-alloc');
+  updateUI();
+}
+function simWrapShared() {
+  if (!sim.objAlive) return log('对象 A 不存在', 'log-warn');
+  if (sim.sp1) return log('sp1 已经在持有 A', 'log-warn');
+  sim.sp1 = true;
+  sim.refcount += 1;
+  log('QSharedPointer<QObject> sp1(A); → refcount = ' + sim.refcount, 'log-share');
+  updateUI();
+}
+function simCopy() {
+  if (!sim.sp1) return log('sp1 还没持有 A，无法复制', 'log-warn');
+  if (sim.sp2) return log('sp2 已经在持有 A', 'log-warn');
+  sim.sp2 = true;
+  sim.refcount += 1;
+  log('QSharedPointer<QObject> sp2 = sp1; → refcount = ' + sim.refcount, 'log-share');
+  updateUI();
+}
+function simWeak() {
+  if (!sim.sp1) return log('需要 sp1 才能构造 QPointer 观察', 'log-warn');
+  if (sim.qptr) return log('已经有一个 QPointer 指向 A', 'log-warn');
+  sim.qptr = true;
+  sim.weakBound = true;
+  log('QPointer<QObject> qp = sp1.data(); → 注册观察者 + 关联 weak', 'log-qobj');
+  updateUI();
+}
+function simScoped() {
+  if (!sim.objAlive) return log('对象 A 不存在', 'log-warn');
+  if (sim.scoped) return log('scoped 已经在持有 A', 'log-warn');
+  sim.scoped = true;
+  log('QScopedPointer<QObject> scoped(A); → 独占接管（注意：会从 sp1 抢所有权）', 'log-alloc');
+  // scoped 抢走所有权 — refcount 减 1
+  if (sim.refcount > 0) sim.refcount -= 1;
+  // 旧有 shared 全部失效（这里演示：sp1/sp2 置空）
+  if (sim.sp1) { sim.sp1 = false; log('  sp1 因所有权转移而失效', 'log-warn'); }
+  if (sim.sp2) { sim.sp2 = false; log('  sp2 因所有权转移而失效', 'log-warn'); }
+  log('  refcount = ' + sim.refcount, 'log-share');
+  updateUI();
+}
+function simDelete() {
+  if (!sim.objAlive) return log('A 已不存在', 'log-warn');
+  sim.objAlive = false;
+  // QPointer 同步置空
+  if (sim.qptr) {
+    sim.qptr = true;  // 仍记录"曾指向"
+    log('delete A; → QPointer 自动置 nullptr（weak 也失效）', 'log-free');
+  } else {
+    log('delete A; → 裸指针持有者将变野指针！', 'log-warn');
+  }
+  sim.weakBound = false;
+  sim.refcount = 0;  // 假设是外部裸 delete，shared/weak 计数无意义
+  sim.sp1 = false; sim.sp2 = false; sim.scoped = false;
+  updateUI();
+}
+function simReset() {
+  if (!sim.sp1) return log('sp1 未持有', 'log-warn');
+  sim.sp1 = false;
+  sim.refcount -= 1;
+  log('sp1.reset(); → refcount = ' + sim.refcount + (sim.refcount === 0 ? ' → delete A' : ''), 'log-free');
+  if (sim.refcount <= 0) sim.objAlive = false;
+  updateUI();
+}
+function simScopedExit() {
+  if (!sim.scoped) return log('scoped 未持有', 'log-warn');
+  sim.scoped = false;
+  log('scoped.reset(); → 立即 delete A（独占指针特性）', 'log-free');
+  sim.objAlive = false;
+  sim.refcount = 0;
+  sim.sp1 = false; sim.sp2 = false;
+  sim.weakBound = false;
+  updateUI();
+}
+function simClear() {
+  sim = { objAlive: false, refcount: 0, sp1: false, sp2: false, scoped: false, weak: false, qptr: false, weakBound: false };
+  const box = document.getElementById('logBox');
+  if (box) box.innerHTML = '<p style="color: #888;">// 操作日志（点击按钮开始演示）</p>';
+  updateUI();
+}
+
+function switchTab(idx) {
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === idx);
+  });
+  document.getElementById('tabContent').innerHTML = tabs[idx]();
+  if (idx === 4) setTimeout(updateUI, 50);
+}
+
+switchTab(0);
+</script>
+</body>
+</html>
