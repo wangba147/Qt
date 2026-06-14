@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qt 学习笔记</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 40px 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #41d3ff, #41d3ff, #c77dff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        .section-title {
+            font-size: 1.4em;
+            color: #41d3ff;
+            margin: 30px 0 15px;
+            padding-left: 12px;
+            border-left: 4px solid #c77dff;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(65,211,255,0.4);
+            box-shadow: 0 8px 30px rgba(65,211,255,0.15);
+        }
+        .card-icon {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+        }
+        .card-title {
+            font-size: 1.05em;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .card-desc {
+            font-size: 0.85em;
+            color: #999;
+        }
+        .tag {
+            display: inline-block;
+            font-size: 0.7em;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        .tag-html { background: rgba(65,211,255,0.2); color: #41d3ff; }
+        .tag-md { background: rgba(199,125,255,0.2); color: #c77dff; }
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #555;
+            font-size: 0.85em;
+        }
+        footer a { color: #888; text-decoration: none; }
+        footer a:hover { color: #41d3ff; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📚 Qt 学习笔记</h1>
+    <p class="subtitle">Qt 框架学习记录 &amp; 示例演示</p>
+
+    <div class="section-title">🎨 Widget 示例（可交互演示）</div>
+    <div class="grid">
+        <a href="Qt学习_QAbstractTableModel_Widget.html" class="card">
+            <div class="card-icon">📊</div>
+            <div class="card-title">QAbstractTableModel</div>
+            <div class="card-desc">表格模型数据展示示例</div>
+            <span class="tag tag-html">HTML</span>
+        </a>
+        <a href="Qt学习_QGraphicsView_Widget.html" class="card">
+            <div class="card-icon">🖼️</div>
+            <div class="card-title">QGraphicsView</div>
+            <div class="card-desc">图形视图框架演示</div>
+            <span class="tag tag-html">HTML</span>
+        </a>
+        <a href="Qt学习_QPropertyAnimation_Widget.html" class="card">
+            <div class="card-icon">✨</div>
+            <div class="card-title">QPropertyAnimation</div>
+            <div class="card-desc">属性动画效果演示</div>
+            <span class="tag tag-html">HTML</span>
+        </a>
+        <a href="Qt学习_QStateMachine_Widget.html" class="card">
+            <div class="card-icon">🔄</div>
+            <div class="card-title">QStateMachine</div>
+            <div class="card-desc">状态机框架示例</div>
+            <span class="tag tag-html">HTML</span>
+        </a>
+        <a href="Qt学习_QStyledItemDelegate_Widget.html" class="card">
+            <div class="card-icon">🎯</div>
+            <div class="card-title">QStyledItemDelegate</div>
+            <div class="card-desc">自定义委托渲染示例</div>
+            <span class="tag tag-html">HTML</span>
+        </a>
+    </div>
+
+    <div class="section-title">📝 学习笔记</div>
+    <div class="grid">
+        <a href="Qt学习笔记_QPainter.md" class="card">
+            <div class="card-icon">🖌️</div>
+            <div class="card-title">QPainter</div>
+            <div class="card-desc">二维绑画绘图详解</div>
+            <span class="tag tag-md">Markdown</span>
+        </a>
+        <a href="Qt学习笔记_QGraphicsView.md" class="card">
+            <div class="card-icon">🔲</div>
+            <div class="card-title">QGraphicsView</div>
+            <div class="card-desc">图形视图架构笔记</div>
+            <span class="tag tag-md">Markdown</span>
+        </a>
+        <a href="Qt学习笔记_QFuture_QtConcurrent.md" class="card">
+            <div class="card-icon">⚡</div>
+            <div class="card-title">QFuture / QtConcurrent</div>
+            <div class="card-desc">多线程并发编程</div>
+            <span class="tag tag-md">Markdown</span>
+        </a>
+        <a href="Qt学习笔记_QThreadPool_QRunnable.md" class="card">
+            <div class="card-icon">🧵</div>
+            <div class="card-title">QThreadPool / QRunnable</div>
+            <div class="card-desc">线程池与任务管理</div>
+            <span class="tag tag-md">Markdown</span>
+        </a>
+        <a href="Qt学习笔记_QStandardPaths.md" class="card">
+            <div class="card-icon">📁</div>
+            <div class="card-title">QStandardPaths</div>
+            <div class="card-desc">标准路径管理</div>
+            <span class="tag tag-md">Markdown</span>
+        </a>
+        <a href="Qt学习笔记_QTranslator.md" class="card">
+            <div class="card-icon">🌐</div>
+            <div class="card-title">QTranslator</div>
+            <div class="card-desc">国际化翻译机制</div>
+            <span class="tag tag-md">Markdown</span>
+        </a>
+    </div>
+
+    <footer>
+        <p>Powered by Qt · Hosted on Cloudflare Pages</p>
+    </footer>
+</div>
+</body>
+</html>

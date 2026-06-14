@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qt Graphics View 框架 - 交互式学习</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  min-height: 100vh;
+  padding: 20px;
+}
+.header {
+  text-align: center;
+  padding: 30px 20px 20px;
+  border-bottom: 2px solid #0f3460;
+  margin-bottom: 20px;
+}
+.header h1 { font-size: 2em; color: #00d2ff; margin-bottom: 8px; }
+.header .subtitle { color: #888; font-size: 0.95em; }
+.header .date { color: #666; font-size: 0.85em; margin-top: 4px; }
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+.tab-btn {
+  padding: 10px 20px;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 0.9em;
+  border-radius: 6px 6px 0 0;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: #fff; background: #1a3a6e; }
+.tab-btn.active { background: #0f3460; color: #00d2ff; border-bottom: 2px solid #00d2ff; }
+.content { max-width: 1100px; margin: 0 auto; }
+.tab-panel { display: none; background: #16213e; border-radius: 0 8px 8px 8px; padding: 25px; border: 1px solid #0f3460; }
+.tab-panel.active { display: block; }
+.tab-panel h2 { color: #00d2ff; font-size: 1.4em; margin-bottom: 16px; border-left: 3px solid #00d2ff; padding-left: 12px; }
+.tab-panel h3 { color: #e94560; margin: 16px 0 8px; font-size: 1.1em; }
+.tab-panel p { line-height: 1.8; margin-bottom: 10px; }
+.arch-diagram {
+  background: #0a0a1a;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  padding: 24px;
+  margin: 16px 0;
+  text-align: center;
+}
+.arch-layer {
+  margin: 8px auto;
+  padding: 14px;
+  border-radius: 6px;
+  font-weight: bold;
+  max-width: 520px;
+}
+.arch-layer.view { background: #e9456020; border: 1px solid #e94560; color: #e94560; }
+.arch-layer.scene { background: #00d2ff20; border: 1px solid #00d2ff; color: #00d2ff; }
+.arch-layer.item { background: #16c79a20; border: 1px solid #16c79a; color: #16c79a; display: inline-block; padding: 8px 16px; margin: 4px; }
+.arch-arrow { color: #888; font-size: 1.5em; margin: 4px 0; }
+code {
+  background: #0a0a1a;
+  color: #ffb347;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+}
+pre {
+  background: #0a0a1a;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  line-height: 1.6;
+  margin: 10px 0;
+  font-size: 0.85em;
+}
+pre code { background: none; color: #e0e0e0; padding: 0; }
+.keyword { color: #e94560; }
+.string { color: #16c79a; }
+.comment { color: #666; }
+.func { color: #00d2ff; }
+.number { color: #ffb347; }
+.type { color: #a29bfe; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+th {
+  background: #0f3460;
+  color: #00d2ff;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.9em;
+}
+td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #0f3460;
+  font-size: 0.9em;
+}
+tr:hover { background: #0f346020; }
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: bold;
+}
+.badge.red { background: #e9456030; color: #e94560; }
+.badge.green { background: #16c79a30; color: #16c79a; }
+.badge.blue { background: #00d2ff30; color: #00d2ff; }
+.tip-box {
+  background: #0a0a1a;
+  border-left: 3px solid #00d2ff;
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+.warn-box {
+  background: #2a1a1a;
+  border-left: 3px solid #e94560;
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+.pitfall-item {
+  background: #0a0a1a;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.pitfall-num {
+  background: #e94560;
+  color: #fff;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  flex-shrink: 0;
+  font-size: 0.85em;
+}
+.pitfall-text { flex: 1; }
+.pitfall-text strong { color: #e94560; }
+.demo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 12px 0;
+}
+.demo-card {
+  background: #0a0a1a;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  padding: 14px;
+}
+.demo-card h4 { color: #16c79a; margin-bottom: 6px; }
+.footer {
+  margin-top: 30px;
+  padding-top: 15px;
+  border-top: 1px solid #0f3460;
+  text-align: center;
+  color: #555;
+  font-size: 0.8em;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Qt Graphics View 框架</h1>
+  <div class="subtitle">QGraphicsScene · QGraphicsView · QGraphicsItem</div>
+  <div class="date">2026-06-08 · Qt 6.8</div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab(0)">概念与架构</button>
+  <button class="tab-btn" onclick="switchTab(1)">基础用法</button>
+  <button class="tab-btn" onclick="switchTab(2)">Item 子类大全</button>
+  <button class="tab-btn" onclick="switchTab(3)">常用 API 速查</button>
+  <button class="tab-btn" onclick="switchTab(4)">进阶技巧与避坑</button>
+</div>
+
+<div class="content">
+  <!-- Tab 0: 概念与架构 -->
+  <div class="tab-panel active">
+    <h2>概念与架构 — 三层模型</h2>
+    <p>Graphics View 框架是 Qt 提供的<strong>高性能 2D 图形交互系统</strong>，基于 <strong>Model-View</strong> 思想设计，专门解决"大量可交互图形元素"的需求。</p>
+
+    <div class="arch-diagram">
+      <div class="arch-layer view">QGraphicsView <span style="font-weight:normal;font-size:0.8em;">视口变换 · 交互事件 · 滚动缩放</span></div>
+      <div class="arch-arrow">↕ mapToScene / mapFromScene</div>
+      <div class="arch-layer scene">QGraphicsScene <span style="font-weight:normal;font-size:0.8em;">BSP 树管理 · 碰撞检测 · 事件分发 · 渲染调度</span></div>
+      <div class="arch-arrow">↕ 管理 →</div>
+      <div>
+        <span class="arch-layer item">QGraphicsRectItem</span>
+        <span class="arch-layer item">QGraphicsEllipseItem</span>
+        <span class="arch-layer item">QGraphicsTextItem</span>
+        <span class="arch-layer item">自定义 Item ...</span>
+      </div>
+    </div>
+
+    <h3>三层职责分离</h3>
+    <table>
+      <tr><th>层次</th><th>类</th><th>核心职责</th><th>类比</th></tr>
+      <tr><td><span class="badge red">视图层</span></td><td><code>QGraphicsView</code></td><td>可滚动视口、缩放/旋转/拖拽交互、坐标映射</td><td>相机/取景器</td></tr>
+      <tr><td><span class="badge blue">场景层</span></td><td><code>QGraphicsScene</code></td><td>Item 容器、BSP 树索引、碰撞检测、事件分发、渲染</td><td>舞台/世界</td></tr>
+      <tr><td><span class="badge green">元素层</span></td><td><code>QGraphicsItem</code></td><td>独立绘制、局部坐标、鼠标/键盘事件、父子变换</td><td>演员/物体</td></tr>
+    </table>
+
+    <h3>为什么不用 QWidget 堆叠？</h3>
+    <table>
+      <tr><th>特性</th><th>QWidget 堆叠</th><th>Graphics View</th></tr>
+      <tr><td>最大 Item 数</td><td>~ 几百个</td><td><strong>百万级</strong></td></tr>
+      <tr><td>坐标变换</td><td>手动 QPainter</td><td>View 级内置矩阵</td></tr>
+      <tr><td>碰撞检测</td><td>手动 O(n²)</td><td>BSP 树 O(log n)</td></tr>
+      <tr><td>缩放/旋转</td><td>手动计算</td><td><code>view->scale()</code> 一行</td></tr>
+      <tr><td>动画</td><td>手动 QTimer</td><td><code>QPropertyAnimation</code> 直接驱动</td></tr>
+    </table>
+
+    <div class="tip-box">
+      <strong>核心思想：</strong> Scene 使用<strong>逻辑坐标</strong>（可任意定义），View 负责映射到屏幕像素。每个 Item 有独立局部坐标，父子间通过变换矩阵级联——这就是为什么它能轻松处理缩放旋转。
+    </div>
+  </div>
+
+  <!-- Tab 1: 基础用法 -->
+  <div class="tab-panel">
+    <h2>基础用法 — 三步上手</h2>
+
+    <h3>最小可运行示例</h3>
+    <pre><code><span class="comment">// 1. 创建场景（世界） — 逻辑坐标范围</span>
+<span class="type">QGraphicsScene</span> <span class="func">scene</span>(-200, -200, 400, 400);  <span class="comment">// (x, y, w, h)</span>
+
+<span class="comment">// 2. 添加图形项</span>
+<span class="keyword">auto</span> *rect = scene.<span class="func">addRect</span>(-50, -50, 100, 100,
+    <span class="func">QPen</span>(<span class="type">Qt</span>::red, 2),
+    <span class="func">QBrush</span>(<span class="type">Qt</span>::blue));
+rect-><span class="func">setFlag</span>(<span class="type">QGraphicsItem</span>::ItemIsMovable);       <span class="comment">// 可拖拽</span>
+rect-><span class="func">setFlag</span>(<span class="type">QGraphicsItem</span>::ItemIsSelectable);    <span class="comment">// 可选中</span>
+
+<span class="comment">// 3. 创建视图（窗口）</span>
+<span class="type">QGraphicsView</span> <span class="func">view</span>(&scene);
+view.<span class="func">setRenderHint</span>(<span class="type">QPainter</span>::Antialiasing);
+view.<span class="func">setDragMode</span>(<span class="type">QGraphicsView</span>::RubberBandDrag);   <span class="comment">// 橡皮筋框选</span>
+view.<span class="func">show</span>();</code></pre>
+
+    <h3>坐标体系</h3>
+    <table>
+      <tr><th>坐标系</th><th>说明</th><th>获取方式</th></tr>
+      <tr><td>Item 局部坐标</td><td>相对于 Item 自身原点</td><td>painter 在 <code>paint()</code> 内默认</td></tr>
+      <tr><td>Item 场景坐标</td><td>相对于 Scene 原点</td><td><code>item->scenePos()</code></td></tr>
+      <tr><td>View 坐标</td><td>相对于 View 视口的像素</td><td>鼠标事件的 <code>event->pos()</code></td></tr>
+    </table>
+
+    <pre><code><span class="comment">// 坐标转换四件套</span>
+<span class="type">QPointF</span> sp = item-><span class="func">mapToScene</span>(localPt);     <span class="comment">// 局部 → 场景</span>
+<span class="type">QPointF</span> lp = item-><span class="func">mapFromScene</span>(scenePt);   <span class="comment">// 场景 → 局部</span>
+<span class="type">QPointF</span> vp = view-><span class="func">mapFromScene</span>(scenePt);   <span class="comment">// 场景 → 视图</span>
+<span class="type">QPointF</span> sp2 = view-><span class="func">mapToScene</span>(viewPt);     <span class="comment">// 视图 → 场景</span></code></pre>
+
+    <h3>视图变换 — 一行实现缩放旋转</h3>
+    <pre><code>view-><span class="func">scale</span>(<span class="number">1.2</span>, <span class="number">1.2</span>);                <span class="comment">// 放大 20%</span>
+view-><span class="func">rotate</span>(<span class="number">45</span>);                      <span class="comment">// 旋转 45°</span>
+view-><span class="func">centerOn</span>(<span class="func">QPointF</span>(<span class="number">100</span>, <span class="number">50</span>));      <span class="comment">// 滚动到指定位置</span>
+view-><span class="func">fitInView</span>(scene.<span class="func">sceneRect</span>(),        <span class="comment">// 自适应显示全部</span>
+              <span class="type">Qt</span>::KeepAspectRatio);
+view-><span class="func">resetTransform</span>();                 <span class="comment">// 重置所有变换</span></code></pre>
+
+    <div class="demo-grid">
+      <div class="demo-card">
+        <h4>拖拽模式 DragMode</h4>
+        <code>NoDrag</code> — 默认无拖拽<br>
+        <code>ScrollHandDrag</code> — 抓手滚动<br>
+        <code>RubberBandDrag</code> — 橡皮筋框选
+      </div>
+      <div class="demo-card">
+        <h4>视口更新模式</h4>
+        <code>SmartViewportUpdate</code> — 智能（推荐）<br>
+        <code>MinimalViewportUpdate</code> — 最小区域<br>
+        <code>FullViewportUpdate</code> — 全刷新<br>
+        <code>NoViewportUpdate</code> — 手动控制
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Item 子类大全 -->
+  <div class="tab-panel">
+    <h2>QGraphicsItem 子类大全</h2>
+
+    <h3>内置子类一览</h3>
+    <table>
+      <tr><th>子类</th><th>创建方法</th><th>典型用途</th></tr>
+      <tr><td><code>QGraphicsRectItem</code></td><td><code>addRect(0,0,100,50, pen, brush)</code></td><td>矩形、按钮背景、面板</td></tr>
+      <tr><td><code>QGraphicsEllipseItem</code></td><td><code>addEllipse(0,0,80,80, pen, brush)</code></td><td>圆形节点、指示灯</td></tr>
+      <tr><td><code>QGraphicsLineItem</code></td><td><code>addLine(0,0,100,0, pen)</code></td><td>连线、分隔线</td></tr>
+      <tr><td><code>QGraphicsPathItem</code></td><td><code>addPath(painterPath, pen, brush)</code></td><td>曲线、箭头、复杂形状</td></tr>
+      <tr><td><code>QGraphicsPolygonItem</code></td><td><code>addPolygon(polygon, pen, brush)</code></td><td>三角形、六边形、区域</td></tr>
+      <tr><td><code>QGraphicsPixmapItem</code></td><td><code>addPixmap(QPixmap("x.png"))</code></td><td>图片、纹理、精灵</td></tr>
+      <tr><td><code>QGraphicsTextItem</code></td><td><code>addText("Hello Qt")</code></td><td>富文本标签</td></tr>
+      <tr><td><code>QGraphicsSimpleTextItem</code></td><td><code>addSimpleText("Label")</code></td><td>纯文本（性能更好）</td></tr>
+      <tr><td><code>QGraphicsProxyWidget</code></td><td><code>addWidget(button)</code></td><td>嵌入 QWidget（慎用太多）</td></tr>
+    </table>
+
+    <h3>关键 Flag（行为开关）</h3>
+    <pre><code>item-><span class="func">setFlags</span>(
+    <span class="type">QGraphicsItem</span>::ItemIsMovable              <span class="comment">// 可拖拽移动</span>
+    | <span class="type">QGraphicsItem</span>::ItemIsSelectable          <span class="comment">// 可被选中</span>
+    | <span class="type">QGraphicsItem</span>::ItemIsFocusable           <span class="comment">// 可获取键盘焦点</span>
+    | <span class="type">QGraphicsItem</span>::ItemSendsGeometryChanges  <span class="comment">// 位置变化通知 itemChange()</span>
+    | <span class="type">QGraphicsItem</span>::ItemSendsScenePositionChanges
+);</code></pre>
+
+    <h3>自定义 Item — 必须重写的虚函数</h3>
+    <table>
+      <tr><th>虚函数</th><th>说明</th><th style="width:60px">必须?</th></tr>
+      <tr><td><code>boundingRect()</code></td><td>返回 Item 的包围矩形（影响可见性判断、碰撞检测）</td><td><span class="badge red">必须</span></td></tr>
+      <tr><td><code>paint()</code></td><td>绘制 Item 内容（唯一合法的绘制入口）</td><td><span class="badge red">必须</span></td></tr>
+      <tr><td><code>shape()</code></td><td>定义精确命中区域（默认 = boundingRect）</td><td>可选</td></tr>
+      <tr><td><code>type()</code></td><td>返回自定义类型 ID，配合 <code>qgraphicsitem_cast</code></td><td>可选</td></tr>
+      <tr><td><code>itemChange()</code></td><td>状态变化通知（位置、选中、可见性等）</td><td>可选</td></tr>
+    </table>
+
+    <pre><code><span class="keyword">class</span> <span class="type">MyNode</span> : <span class="keyword">public</span> <span class="type">QGraphicsItem</span> {
+<span class="keyword">public</span>:
+    <span class="type">QRectF</span> <span class="func">boundingRect</span>() <span class="keyword">const override</span> {
+        <span class="keyword">return</span> <span class="func">QRectF</span>(-30, -30, 60, 60);    <span class="comment">// 以原点为中心的 60x60 包围盒</span>
+    }
+
+    <span class="keyword">void</span> <span class="func">paint</span>(<span class="type">QPainter</span> *painter, <span class="keyword">const</span> <span class="type">QStyleOptionGraphicsItem</span> *,
+               <span class="type">QWidget</span> *) <span class="keyword">override</span> {
+        <span class="comment">// 选中时变色</span>
+        painter-><span class="func">setBrush</span>(<span class="func">isSelected</span>() ? <span class="type">Qt</span>::cyan : <span class="type">Qt</span>::gray);
+        painter-><span class="func">drawRoundedRect</span>(<span class="func">boundingRect</span>(), <span class="number">10</span>, <span class="number">10</span>);
+        painter-><span class="func">drawText</span>(<span class="func">boundingRect</span>(), <span class="type">Qt</span>::AlignCenter, m_label);
+    }
+<span class="keyword">private</span>:
+    <span class="type">QString</span> m_label = <span class="string">"Node"</span>;
+};</code></pre>
+  </div>
+
+  <!-- Tab 3: 常用 API 速查 -->
+  <div class="tab-panel">
+    <h2>常用 API 速查</h2>
+
+    <h3>QGraphicsScene — 场景管理</h3>
+    <table>
+      <tr><th>方法</th><th>说明</th></tr>
+      <tr><td><code>addItem(QGraphicsItem*)</code></td><td>添加自定义 Item（场景接管所有权）</td></tr>
+      <tr><td><code>addRect/addEllipse/addLine/...</code></td><td>添加内置图形，返回 Item*</td></tr>
+      <tr><td><code>removeItem(item)</code></td><td>从场景移除（<strong>不 delete</strong>，交还所有权）</td></tr>
+      <tr><td><code>clear()</code></td><td>移除并 <strong>delete</strong> 所有 Item</td></tr>
+      <tr><td><code>items()</code></td><td>获取所有 Item 列表</td></tr>
+      <tr><td><code>items(rect)</code></td><td>获取指定矩形区域内的 Items</td></tr>
+      <tr><td><code>items(pos)</code></td><td>获取指定坐标点上的 Items</td></tr>
+      <tr><td><code>itemAt(pos, transform)</code></td><td>获取最顶层的 Item</td></tr>
+      <tr><td><code>selectedItems()</code></td><td>获取所有选中的 Items</td></tr>
+      <tr><td><code>setFocusItem(item)</code></td><td>设置键盘焦点 Item</td></tr>
+      <tr><td><code>collidingItems(item)</code></td><td>获取与指定 Item 碰撞的所有 Items</td></tr>
+      <tr><td><code>createItemGroup(items)</code></td><td>创建 Item 群组</td></tr>
+      <tr><td><code>update(rect)</code></td><td>触发指定区域重绘</td></tr>
+      <tr><td><code>advance()</code></td><td>推进所有 Item 动画一帧</td></tr>
+    </table>
+
+    <h3>QGraphicsView — 视图控制</h3>
+    <table>
+      <tr><th>方法</th><th>说明</th></tr>
+      <tr><td><code>setScene(scene)</code></td><td>绑定场景</td></tr>
+      <tr><td><code>setTransform(t)</code></td><td>设置完整变换矩阵</td></tr>
+      <tr><td><code>scale(sx, sy)</code></td><td>缩放（叠加到当前变换）</td></tr>
+      <tr><td><code>rotate(angle)</code></td><td>旋转（叠加到当前变换）</td></tr>
+      <tr><td><code>resetTransform()</code></td><td>重置为单位矩阵</td></tr>
+      <tr><td><code>centerOn(pos)</code></td><td>滚动使场景坐标居中视口</td></tr>
+      <tr><td><code>fitInView(rect, aspect)</code></td><td>缩放使矩形适配视口</td></tr>
+      <tr><td><code>ensureVisible(rect, margin)</code></td><td>确保指定区域可见</td></tr>
+      <tr><td><code>setDragMode(mode)</code></td><td>设置鼠标拖拽行为</td></tr>
+      <tr><td><code>setRenderHint(hint)</code></td><td>渲染质量提示</td></tr>
+      <tr><td><code>setCacheMode(mode)</code></td><td>设置背景缓存策略</td></tr>
+      <tr><td><code>setViewport(QWidget*)</code></td><td>替换视口 Widget（如 QOpenGLWidget）</td></tr>
+      <tr><td><code>render(painter)</code></td><td>渲染场景到任意 QPainter（截图/打印）</td></tr>
+    </table>
+
+    <h3>DragMode 枚举</h3>
+    <table>
+      <tr><th>值</th><th>行为</th></tr>
+      <tr><td><code>NoDrag</code></td><td>无特殊拖拽行为（默认）</td></tr>
+      <tr><td><code>ScrollHandDrag</code></td><td>鼠标变为抓手，拖动平移场景</td></tr>
+      <tr><td><code>RubberBandDrag</code></td><td>拖拽画出橡皮筋矩形框选 Item</td></tr>
+    </table>
+  </div>
+
+  <!-- Tab 4: 进阶技巧与避坑 -->
+  <div class="tab-panel">
+    <h2>进阶技巧与避坑要点</h2>
+
+    <h3>进阶技巧</h3>
+    <div class="demo-grid">
+      <div class="demo-card">
+        <h4>Item 分组 — QGraphicsItemGroup</h4>
+        <pre><code><span class="keyword">auto</span> *group = scene.<span class="func">createItemGroup</span>({it1, it2, it3});
+group-><span class="func">setFlags</span>(<span class="type">QGraphicsItem</span>::ItemIsMovable);
+<span class="comment">// 解散分组</span>
+scene.<span class="func">destroyItemGroup</span>(group);</code></pre>
+      </div>
+      <div class="demo-card">
+        <h4>动画 — QPropertyAnimation</h4>
+        <pre><code><span class="keyword">auto</span> *anim = <span class="keyword">new</span> <span class="type">QPropertyAnimation</span>(item, <span class="string">"pos"</span>);
+anim-><span class="func">setDuration</span>(<span class="number">1000</span>);
+anim-><span class="func">setStartValue</span>(<span class="func">QPointF</span>(<span class="number">0</span>, <span class="number">0</span>));
+anim-><span class="func">setEndValue</span>(<span class="func">QPointF</span>(<span class="number">300</span>, <span class="number">200</span>));
+anim-><span class="func">start</span>(<span class="type">QAbstractAnimation</span>::DeleteWhenStopped);</code></pre>
+      </div>
+      <div class="demo-card">
+        <h4>嵌入 QWidget — QGraphicsProxyWidget</h4>
+        <pre><code><span class="keyword">auto</span> *proxy = scene.<span class="func">addWidget</span>(
+    <span class="keyword">new</span> <span class="type">QPushButton</span>(<span class="string">"Click"</span>));
+proxy-><span class="func">setPos</span>(<span class="number">100</span>, <span class="number">100</span>);
+proxy-><span class="func">setRotation</span>(<span class="number">15</span>); <span class="comment">// 按钮也能旋转!</span></code></pre>
+        <span style="color:#e94560;font-size:0.85em;">⚠ 每个 Widget 消耗系统资源，不宜大量使用</span>
+      </div>
+      <div class="demo-card">
+        <h4>性能优化三板斧</h4>
+        <pre><code><span class="comment">// 1. 背景缓存</span>
+view-><span class="func">setCacheMode</span>(<span class="type">QGraphicsView</span>::CacheBackground);
+<span class="comment">// 2. Item 缓存</span>
+item-><span class="func">setCacheMode</span>(<span class="type">QGraphicsItem</span>::DeviceCoordinateCache);
+<span class="comment">// 3. 优化标志</span>
+view-><span class="func">setOptimizationFlags</span>(
+    <span class="type">QGraphicsView</span>::DontSavePainterState
+    | <span class="type">QGraphicsView</span>::DontAdjustForAntialiasing);</code></pre>
+      </div>
+    </div>
+
+    <h3>8 个经典避坑要点</h3>
+
+    <div class="pitfall-item">
+      <div class="pitfall-num">1</div>
+      <div class="pitfall-text"><strong>scene.clear() 会 delete 所有 Item！</strong><br>外部持有的指针立即变野。<br>正确做法：用 <code>removeItem()</code> 逐个移除但保留 Item 所有权。</div>
+    </div>
+
+    <div class="pitfall-item">
+      <div class="pitfall-num">2</div>
+      <div class="pitfall-text"><strong>boundingRect() 包不住内容 → 不可见</strong><br>必须包住所有绘制内容 + <code>pen.widthF()/2</code> 的笔宽溢出。</div>
+    </div>
+
+    <div class="pitfall-item">
+      <div class="pitfall-num">3</div>
+      <div class="pitfall-text"><strong>在 paint() 外调用 drawXXX 绘制</strong><br>所有绘制 <strong>必须</strong> 在 <code>paint()</code> 虚函数内完成，否则不会显示。</div>
+    </div>
+
+    <div class="pitfall-item">
+      <div class="pitfall-num">4</div>
+      <div class="pitfall-text"><strong>Item 位置/大小改变前不调 prepareGeometryChange()</strong><br>导致 BSP 树索引过时、碰撞检测错误、残留残影。位置/大小/变换改变前必须调用。</div>
+    </div>
+
+    <div class="pitfall-item">
+      <div class="pitfall-num">5</div>
+      <div class="pitfall-text"><strong>嵌入过多 QWidget 导致性能灾难</strong><br>每个 QWidget 消耗系统窗口资源，应用崩溃时往往超过 ~50 个。<br>简单控件用自定义 Item 绘制替代。</div>
+    </div>
+
+    <div class="pitfall-item">
+      <div class="pitfall-num">6</div>
+      <div class="pitfall-text"><strong>忘记 setFlag(ItemIsFocusable) 导致键盘事件失效</strong><br>需要键盘交互的 Item 必须设置此 Flag，否则按键事件不会路由到该 Item。</div>
+    </div>
+
+    <div class="pitfall-item">
+      <div class="pitfall-num">7</div>
+      <div class="pitfall-text"><strong>直接修改 pos() 而非 setPos() 触发不了 itemChange</strong><br>始终使用 <code>setPos()</code> 移动 Item，它才会触发 <code>itemChange(ItemPositionChange)</code>。</div>
+    </div>
+
+    <div class="pitfall-item">
+      <div class="pitfall-num">8</div>
+      <div class="pitfall-text"><strong>多层缩放叠加导致浮点误差累积</strong><br>长期使用 <code>scale()</code> 叠加会导致矩阵精度丢失。<br>定期用 <code>resetTransform()</code> + 重新计算目标变换矩阵。</div>
+    </div>
+
+    <div class="warn-box" style="margin-top:16px;">
+      <strong>性能警告：</strong> Graphics View 虽然支持百万级 Item，但大量 <strong>带动画的、频繁选中状态切换的、大号 QPixmap 的</strong> Item 仍然会很慢。适时使用 <code>DeviceCoordinateCache</code> 缓存和限制可见 Item 数量。
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Qt Daily Learning · 2026-06-08 · QGraphicsView / QGraphicsScene / QGraphicsItem
+</div>
+
+<script>
+function switchTab(idx) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', i === idx));
+}
+</script>
+</body>
+</html>

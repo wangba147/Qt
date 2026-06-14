@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qt 每日学习 — QAbstractTableModel / QAbstractListModel</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --card: #16213e;
+  --card2: #0f3460;
+  --accent: #e94560;
+  --accent2: #0abde3;
+  --text: #e0e0e0;
+  --text2: #a0a0b0;
+  --code-bg: #252540;
+  --border: #2a2a4a;
+  --success: #2ecc71;
+  --warn: #f39c12;
+  --tag-bg: #1a3a5c;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); line-height:1.7; }
+.header { background:linear-gradient(135deg, #0f3460 0%, #16213e 50%, #1a1a2e 100%); padding:32px 24px; text-align:center; border-bottom:2px solid var(--accent); }
+.header h1 { font-size:2rem; color:#fff; margin-bottom:8px; }
+.header h1 span { color:var(--accent2); }
+.header .subtitle { color:var(--text2); font-size:0.95rem; }
+.header .meta { margin-top:12px; display:flex; justify-content:center; gap:16px; flex-wrap:wrap; }
+.header .meta .badge { background:var(--tag-bg); padding:4px 14px; border-radius:20px; font-size:0.8rem; color:var(--accent2); border:1px solid var(--accent2); }
+.tabs { display:flex; flex-wrap:wrap; gap:2px; padding:16px 24px 0; background:var(--card); border-bottom:1px solid var(--border); }
+.tab-btn { background:none; border:none; color:var(--text2); padding:10px 20px; cursor:pointer; font-size:0.9rem; border-bottom:3px solid transparent; transition:all .3s; border-radius:6px 6px 0 0; font-family:inherit; }
+.tab-btn:hover { color:#fff; background:rgba(233,69,96,0.1); }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); background:var(--bg); }
+.content { max-width:1100px; margin:0 auto; padding:24px; }
+.tab-panel { display:none; animation: fadeIn .4s; }
+.tab-panel.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+h2 { color:var(--accent2); margin:20px 0 12px; font-size:1.3rem; border-left:4px solid var(--accent); padding-left:12px; }
+h3 { color:#ccc; margin:16px 0 8px; font-size:1.05rem; }
+p { margin:8px 0; color:var(--text2); }
+pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:16px; overflow-x:auto; margin:12px 0; font-size:0.85rem; line-height:1.5; }
+code { font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+pre code { color:#c0c0d0; }
+.keyword { color:#e94560; }
+.type { color:#0abde3; }
+.comment { color:#6a6a8a; font-style:italic; }
+.string { color:#2ecc71; }
+.func { color:#f39c12; }
+.macro { color:#a855f7; }
+.api-table { width:100%; border-collapse:collapse; margin:12px 0; font-size:0.88rem; }
+.api-table th { background:var(--card2); color:var(--accent2); padding:10px 12px; text-align:left; border:1px solid var(--border); }
+.api-table td { padding:8px 12px; border:1px solid var(--border); }
+.api-table tr:nth-child(even) td { background:rgba(15,52,96,0.3); }
+.api-table tr:hover td { background:rgba(233,69,96,0.1); }
+.tip-box { background:var(--card2); border-left:4px solid var(--accent2); padding:14px 18px; border-radius:0 8px 8px 0; margin:14px 0; }
+.tip-box.warn { border-left-color:var(--warn); }
+.tip-box.success { border-left-color:var(--success); }
+.tip-box .tip-title { font-weight:700; margin-bottom:4px; }
+.diagram { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:24px; margin:12px 0; text-align:center; overflow-x:auto; }
+.demo-table { width:100%; border-collapse:collapse; margin:12px 0; font-size:0.85rem; }
+.demo-table th { background:var(--accent); color:#fff; padding:8px 12px; cursor:pointer; user-select:none; }
+.demo-table th:hover { background:var(--accent2); }
+.demo-table td { padding:6px 12px; border:1px solid var(--border); text-align:center; }
+.demo-table tr:nth-child(even) td { background:rgba(15,52,96,0.3); }
+.demo-table tr:hover td { background:rgba(233,69,96,0.1); }
+.btn { background:var(--accent); color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:0.88rem; transition:all .3s; font-family:inherit; margin:4px; }
+.btn:hover { background:var(--accent2); transform:translateY(-1px); }
+.btn.small { padding:4px 12px; font-size:0.8rem; }
+.editable-cell { cursor:pointer; padding:4px 8px; border-radius:4px; transition:background .2s; }
+.editable-cell:hover { background:rgba(233,69,96,0.2); }
+.editable-cell input { background:var(--bg); color:var(--text); border:1px solid var(--accent2); border-radius:4px; padding:4px 8px; width:120px; font-size:0.85rem; text-align:center; }
+.flow-arrow { color:var(--accent); font-weight:700; }
+.cmp-table { width:100%; border-collapse:collapse; margin:12px 0; font-size:0.88rem; }
+.cmp-table th { background:var(--card2); padding:10px 12px; border:1px solid var(--border); }
+.cmp-table th:nth-child(1) { color:var(--text2); }
+.cmp-table th:nth-child(2) { color:var(--accent); }
+.cmp-table th:nth-child(3) { color:var(--accent2); }
+.cmp-table th:nth-child(4) { color:var(--success); }
+.cmp-table td { padding:8px 12px; border:1px solid var(--border); color:var(--text2); }
+.cmp-table tr:nth-child(even) td { background:rgba(15,52,96,0.3); }
+.legend { display:flex; gap:16px; flex-wrap:wrap; margin:12px 0; }
+.legend-item { display:flex; align-items:center; gap:6px; font-size:0.85rem; color:var(--text2); }
+.legend-dot { width:12px; height:12px; border-radius:50%; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📋 <span>QAbstractTableModel</span> &amp; QAbstractListModel</h1>
+  <p class="subtitle">Qt Model/View 框架 · 自定义数据模型核心基类</p>
+  <div class="meta">
+    <span class="badge">Qt 6.8</span>
+    <span class="badge">Qt Core / Model-View</span>
+    <span class="badge">2026-06-12</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab(0)">🏗️ 概念与架构</button>
+  <button class="tab-btn" onclick="switchTab(1)">🔧 基础用法</button>
+  <button class="tab-btn" onclick="switchTab(2)">✏️ 可编辑模型</button>
+  <button class="tab-btn" onclick="switchTab(3)">📡 数据变更通知</button>
+  <button class="tab-btn" onclick="switchTab(4)">📖 常用API速查</button>
+  <button class="tab-btn" onclick="switchTab(5)">⚠️ 实战与避坑</button>
+</div>
+
+<div class="content">
+
+<!-- Tab 0: 概念与架构 -->
+<div class="tab-panel active" id="tab0">
+
+<div class="diagram">
+<svg width="700" height="350" viewBox="0 0 700 350">
+  <defs>
+    <linearGradient id="gView" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e94560"/><stop offset="1" stop-color="#c0392b"/></linearGradient>
+    <linearGradient id="gProxy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f39c12"/><stop offset="1" stop-color="#d68910"/></linearGradient>
+    <linearGradient id="gModel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0abde3"/><stop offset="1" stop-color="#0984e3"/></linearGradient>
+    <linearGradient id="gData" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2ecc71"/><stop offset="1" stop-color="#27ae60"/></linearGradient>
+  </defs>
+  <rect x="30" y="30" width="180" height="120" rx="12" fill="#16213e" stroke="#e94560" stroke-width="2"/>
+  <text x="120" y="68" text-anchor="middle" fill="#e94560" font-size="16" font-weight="bold">📺 QListView</text>
+  <text x="120" y="92" text-anchor="middle" fill="#e94560" font-size="16" font-weight="bold">📊 QTableView</text>
+  <text x="120" y="120" text-anchor="middle" fill="#a0a0b0" font-size="12">View 层 — 只展示</text>
+
+  <rect x="260" y="30" width="180" height="120" rx="12" fill="#16213e" stroke="#f39c12" stroke-width="2" stroke-dasharray="8,4"/>
+  <text x="350" y="68" text-anchor="middle" fill="#f39c12" font-size="14" font-weight="bold">🔀 QSortFilterProxyModel</text>
+  <text x="350" y="92" text-anchor="middle" fill="#f39c12" font-size="12">(可选代理层)</text>
+  <text x="350" y="118" text-anchor="middle" fill="#a0a0b0" font-size="12">过滤/排序/分组</text>
+
+  <rect x="490" y="30" width="180" height="120" rx="12" fill="#16213e" stroke="#0abde3" stroke-width="2"/>
+  <text x="580" y="60" text-anchor="middle" fill="#0abde3" font-size="14" font-weight="bold">⚡ QAbstractTableModel</text>
+  <text x="580" y="82" text-anchor="middle" fill="#0abde3" font-size="14" font-weight="bold">QAbstractListModel</text>
+  <text x="580" y="108" text-anchor="middle" fill="#a0a0b0" font-size="12">Model 层 — 核心</text>
+  <text x="580" y="130" text-anchor="middle" fill="#a0a0b0" font-size="11">← 你今天学这个</text>
+
+  <rect x="310" y="200" width="220" height="80" rx="12" fill="#16213e" stroke="#2ecc71" stroke-width="2"/>
+  <text x="420" y="230" text-anchor="middle" fill="#2ecc71" font-size="14" font-weight="bold">💾 数据源</text>
+  <text x="420" y="255" text-anchor="middle" fill="#a0a0b0" font-size="12">QList / QVector / std::vector / SQL / 文件</text>
+
+  <!-- arrows -->
+  <line x1="210" y1="90" x2="255" y2="90" stroke="#e94560" stroke-width="2" marker-end="url(#aRed)"/>
+  <line x1="440" y1="90" x2="485" y2="90" stroke="#f39c12" stroke-width="2" marker-end="url(#aBlue)"/>
+  <line x1="555" y1="200" x2="490" y2="155" stroke="#0abde3" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <line x1="580" y1="150" x2="480" y2="195" stroke="#2ecc71" stroke-width="1.5" stroke-dasharray="6,3"/>
+
+  <defs>
+    <marker id="aRed" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><polygon points="0,0 8,4 0,8" fill="#e94560"/></marker>
+    <marker id="aBlue" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><polygon points="0,0 8,4 0,8" fill="#0abde3"/></marker>
+  </defs>
+
+  <text x="300" y="300" text-anchor="middle" fill="#a0a0b0" font-size="12">↕ setModel() 建立连接  ↕ 子类化重写虚函数</text>
+  <text x="420" y="320" text-anchor="middle" fill="#a0a0b0" font-size="11">← 数据流向：View 通过 model→data() 读取，底层数据通过信号通知 View 刷新</text>
+</svg>
+</div>
+
+<h2>为什么要自定义 Model？</h2>
+<p>Qt 内置了 <code>QStandardItemModel</code>，但它有几个痛点：</p>
+<div class="api-table">
+  <tr><th style="color:var(--warn);">痛点</th><th>QStandardItemModel</th><th style="color:var(--accent2);">自定义 Model（继承 QAbstractXxxModel）</th></tr>
+  <tr><td>内存开销</td><td>每个单元格一个 QStandardItem 对象</td><td>直接映射底层数据结构，零额外对象</td></tr>
+  <tr><td>数据同步</td><td>需要手动双向同步（数据源 ⇄ Model）</td><td><code>data()</code> 直接读取源数据，数据源即 Model</td></tr>
+  <tr><td>性能</td><td>大数据量（10w+行）插入/删除慢</td><td><code>beginInsertRows</code> 批量操作，O(1) 通知</td></tr>
+  <tr><td>类型安全</td><td>QVariant 满天飞</td><td>你的数据结构是什么类型，Model 就用什么类型</td></tr>
+</div>
+
+<h2>继承层次</h2>
+<pre><code><span class="keyword">QAbstractItemModel</span>              <span class="comment">// 最顶层抽象，提供树形模型能力</span>
+  ├── <span class="keyword">QAbstractListModel</span>        <span class="comment">// 一维列表（推荐用于列表类视图）</span>
+  └── <span class="keyword">QAbstractTableModel</span>      <span class="comment">// 二维表格（推荐用于表格类视图）</span></code></pre>
+
+<div class="tip-box">
+  <div class="tip-title">💡 选择建议</div>
+  <b>列表视图</b>（QListView、QComboBox）→ 继承 <code>QAbstractListModel</code><br>
+  <b>表格视图</b>（QTableView）→ 继承 <code>QAbstractTableModel</code><br>
+  <b>树形视图</b>（QTreeView）→ 继承 <code>QAbstractItemModel</code><br>
+  两者都可以用于 QTableView（底层都是 QAbstractItemModel），但继承专用子类可以减少需要实现的虚函数数量。
+</div>
+</div>
+
+<!-- Tab 1: 基础用法 -->
+<div class="tab-panel" id="tab1">
+
+<h2>QAbstractTableModel — 必须实现的 3 个虚函数</h2>
+<pre><code><span class="keyword">class</span> <span class="type">EmployeeModel</span> : <span class="keyword">public</span> <span class="type">QAbstractTableModel</span>
+{
+    <span class="macro">Q_OBJECT</span>
+<span class="keyword">public</span>:
+    <span class="comment">// ① 行数 — 必须</span>
+    <span class="type">int</span> <span class="func">rowCount</span>(<span class="keyword">const</span> <span class="type">QModelIndex</span> &amp;parent = QModelIndex()) <span class="keyword">const override</span> {
+        <span class="keyword">if</span> (parent.isValid()) <span class="keyword">return</span> <span class="func">0</span>;   <span class="comment">// 顶层：没有父项</span>
+        <span class="keyword">return</span> m_employees.<span class="func">size</span>();             <span class="comment">// 返回数据行数</span>
+    }
+
+    <span class="comment">// ② 列数 — 必须</span>
+    <span class="type">int</span> <span class="func">columnCount</span>(<span class="keyword">const</span> <span class="type">QModelIndex</span> &amp;parent = QModelIndex()) <span class="keyword">const override</span> {
+        <span class="keyword">if</span> (parent.isValid()) <span class="keyword">return</span> <span class="func">0</span>;
+        <span class="keyword">return</span> <span class="func">5</span>;  <span class="comment">// 姓名/部门/职位/薪资/入职日期</span>
+    }
+
+    <span class="comment">// ③ 数据访问 — 必须</span>
+    <span class="type">QVariant</span> <span class="func">data</span>(<span class="keyword">const</span> <span class="type">QModelIndex</span> &amp;index,
+                  <span class="type">int</span> role = Qt::DisplayRole) <span class="keyword">const override</span> {
+        <span class="keyword">if</span> (!index.isValid()) <span class="keyword">return</span> {};
+        <span class="keyword">const</span> <span class="keyword">auto</span> &amp;emp = m_employees[index.<span class="func">row</span>()];
+
+        <span class="keyword">if</span> (role == Qt::DisplayRole) {
+            <span class="keyword">switch</span> (index.<span class="func">column</span>()) {
+                <span class="keyword">case</span> <span class="func">0</span>: <span class="keyword">return</span> emp.name;
+                <span class="keyword">case</span> <span class="func">1</span>: <span class="keyword">return</span> emp.department;
+                <span class="keyword">case</span> <span class="func">2</span>: <span class="keyword">return</span> emp.title;
+                <span class="keyword">case</span> <span class="func">3</span>: <span class="keyword">return</span> emp.salary;
+                <span class="keyword">case</span> <span class="func">4</span>: <span class="keyword">return</span> emp.hireDate;
+            }
+        }
+        <span class="keyword">return</span> {};
+    }
+
+<span class="keyword">private</span>:
+    <span class="type">QVector</span>&lt;Employee&gt; m_employees;  <span class="comment">// ← 你的真实数据</span>
+};</code></pre>
+
+<h2>QAbstractListModel — 只需 2 个虚函数</h2>
+<pre><code><span class="keyword">class</span> <span class="type">TodoListModel</span> : <span class="keyword">public</span> <span class="type">QAbstractListModel</span>
+{
+    <span class="macro">Q_OBJECT</span>
+<span class="keyword">public</span>:
+    <span class="type">int</span> <span class="func">rowCount</span>(<span class="keyword">const</span> <span class="type">QModelIndex</span> &amp;parent = QModelIndex()) <span class="keyword">const override</span> {
+        <span class="keyword">return</span> parent.isValid() ? <span class="func">0</span> : m_todos.<span class="func">size</span>();
+    }                                    <span class="comment">// ↑ 不需要 columnCount!</span>
+
+    <span class="type">QVariant</span> <span class="func">data</span>(<span class="keyword">const</span> <span class="type">QModelIndex</span> &amp;index,
+                  <span class="type">int</span> role = Qt::DisplayRole) <span class="keyword">const override</span> {
+        <span class="keyword">if</span> (!index.isValid()) <span class="keyword">return</span> {};
+        <span class="keyword">if</span> (role == Qt::DisplayRole)
+            <span class="keyword">return</span> m_todos[index.<span class="func">row</span>()].title;
+        <span class="keyword">if</span> (role == Qt::CheckStateRole)
+            <span class="keyword">return</span> m_todos[index.<span class="func">row</span>()].done
+                   ? Qt::Checked : Qt::Unchecked;
+        <span class="keyword">return</span> {};
+    }
+
+<span class="keyword">private</span>:
+    <span class="type">QVector</span>&lt;TodoItem&gt; m_todos;
+};</code></pre>
+
+<div class="tip-box">
+  <div class="tip-title">🎯 Role 体系 — data() 的核心机制</div>
+  View 通过不同 <b>role</b> 向 Model 请求不同维度的数据。常用 role：
+  <code>Qt::DisplayRole</code>（显示文本）、<code>Qt::DecorationRole</code>（图标）、<br>
+  <code>Qt::ToolTipRole</code>（提示）、<code>Qt::TextAlignmentRole</code>（对齐）、<br>
+  <code>Qt::ForegroundRole</code>（前景色）、<code>Qt::BackgroundRole</code>（背景色）、<br>
+  <code>Qt::FontRole</code>（字体）、<code>Qt::CheckStateRole</code>（勾选框）、<br>
+  <code>Qt::UserRole</code>（自定义数据，从这里起步）
+</div>
+
+<h2>在线演示 — 只读表格 Model</h2>
+<p style="margin-bottom:8px;">下面的表格由一个自定义 <b>EmployeeTableModel</b> 驱动，数据来自内存中的 QVector：</p>
+<div id="readonly-demo">
+  <table class="demo-table" id="demo-table">
+    <thead><tr>
+      <th onclick="sortDemo(0)">姓名 ↕</th>
+      <th onclick="sortDemo(1)">部门 ↕</th>
+      <th onclick="sortDemo(2)">职位 ↕</th>
+      <th onclick="sortDemo(3)">薪资 ↕</th>
+      <th onclick="sortDemo(4)">入职日期 ↕</th>
+    </tr></thead>
+    <tbody id="demo-tbody"></tbody>
+  </table>
+</div>
+<button class="btn small" onclick="addDemoRow()">+ 添加行</button>
+<button class="btn small" onclick="shuffleDemo()">🔀 随机数据</button>
+<button class="btn small" onclick="resetDemo()">🔄 重置</button>
+<span id="demo-info" style="color:var(--text2);font-size:0.8rem;margin-left:12px;"></span>
+</div>
+
+<!-- Tab 2: 可编辑模型 -->
+<div class="tab-panel" id="tab2">
+
+<h2>让 Model 可编辑 — 需要重写的虚函数</h2>
+<pre><code><span class="comment">// ① 告诉 View 哪些单元格可编辑、可选、可拖拽</span>
+<span class="type">Qt::ItemFlags</span> <span class="func">flags</span>(<span class="keyword">const</span> <span class="type">QModelIndex</span> &amp;index) <span class="keyword">const override</span> {
+    <span class="keyword">if</span> (!index.isValid()) <span class="keyword">return</span> Qt::NoItemFlags;
+    <span class="keyword">return</span> Qt::ItemIsSelectable | Qt::ItemIsEnabled
+           | Qt::ItemIsEditable;  <span class="comment">// ← 加上这个才是可编辑</span>
+}
+
+<span class="comment">// ② View 编辑完成后，把新值写回 Model</span>
+<span class="type">bool</span> <span class="func">setData</span>(<span class="keyword">const</span> <span class="type">QModelIndex</span> &amp;index,
+               <span class="keyword">const</span> <span class="type">QVariant</span> &amp;value,
+               <span class="type">int</span> role = Qt::EditRole) <span class="keyword">override</span> {
+    <span class="keyword">if</span> (!index.isValid() || role != Qt::EditRole)
+        <span class="keyword">return</span> <span class="func">false</span>;
+
+    <span class="keyword">auto</span> &amp;emp = m_employees[index.<span class="func">row</span>()];
+    <span class="keyword">switch</span> (index.<span class="func">column</span>()) {
+        <span class="keyword">case</span> <span class="func">0</span>: emp.name = value.<span class="func">toString</span>(); <span class="keyword">break</span>;
+        <span class="keyword">case</span> <span class="func">1</span>: emp.department = value.<span class="func">toString</span>(); <span class="keyword">break</span>;
+        <span class="comment">// ...</span>
+    }
+    <span class="func">emit</span> <span class="func">dataChanged</span>(index, index, {role});  <span class="comment">// 必须发射!</span>
+    <span class="keyword">return</span> <span class="func">true</span>;
+}
+
+<span class="comment">// ③ （可选）提供表头文本</span>
+<span class="type">QVariant</span> <span class="func">headerData</span>(<span class="type">int</span> section, <span class="type">Qt::Orientation</span> orientation,
+                    <span class="type">int</span> role = Qt::DisplayRole) <span class="keyword">const override</span> {
+    <span class="keyword">if</span> (role != Qt::DisplayRole) <span class="keyword">return</span> {};
+    <span class="keyword">if</span> (orientation == Qt::Horizontal) {
+        <span class="keyword">switch</span> (section) {
+            <span class="keyword">case</span> <span class="func">0</span>: <span class="keyword">return</span> <span class="string">"姓名"</span>;
+            <span class="keyword">case</span> <span class="func">1</span>: <span class="keyword">return</span> <span class="string">"部门"</span>;
+            <span class="comment">// ...</span>
+        }
+    }
+    <span class="keyword">return</span> {};
+}</code></pre>
+
+<h2>在线演示 — 可编辑表格</h2>
+<p>双击单元格即可编辑（模拟 QTableView 编辑效果），数据会实时回写：</p>
+<div id="editable-demo">
+  <table class="demo-table" id="editable-table">
+    <thead><tr>
+      <th>姓名</th><th>部门</th><th>职位</th><th>薪资</th><th>入职日期</th>
+    </tr></thead>
+    <tbody id="editable-tbody"></tbody>
+  </table>
+</div>
+<button class="btn small" onclick="addEditableRow()">+ 添加行</button>
+<button class="btn small" onclick="removeEditableRow()">- 删除选中行</button>
+<span id="editable-info" style="color:var(--warn);font-size:0.8rem;margin-left:12px;"></span>
+
+<div class="tip-box">
+  <div class="tip-title">⚠️ setData 后必须发射 dataChanged</div>
+  如果你在 <code>setData()</code> 里修改了数据但没有调用 <code>emit dataChanged(index, index)</code>，
+  View 不会自动刷新！这是最常见的 bug 之一。<br>
+  如果修改涉及多行/多列，使用 <code>dataChanged(topLeft, bottomRight)</code> 一次性通知矩形区域。
+</div>
+</div>
+
+<!-- Tab 3: 数据变更通知 -->
+<div class="tab-panel" id="tab3">
+
+<h2>核心概念：Model 通知 View 数据已变更</h2>
+<div class="diagram">
+<svg width="620" height="200" viewBox="0 0 620 200">
+  <rect x="20" y="50" width="140" height="100" rx="10" fill="#16213e" stroke="#0abde3" stroke-width="2"/>
+  <text x="90" y="95" text-anchor="middle" fill="#0abde3" font-size="13" font-weight="bold">Model 层</text>
+  <text x="90" y="115" text-anchor="middle" fill="#a0a0b0" font-size="11">数据变更完成</text>
+  <text x="90" y="135" text-anchor="middle" fill="#a0a0b0" font-size="11">发射信号</text>
+
+  <line x1="165" y1="100" x2="240" y2="100" stroke="#e94560" stroke-width="2" marker-end="url(#aSignal)"/>
+
+  <rect x="245" y="40" width="160" height="120" rx="10" fill="#16213e" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="325" y="72" text-anchor="middle" fill="#a855f7" font-size="12">beginXxxRows()</text>
+  <text x="325" y="92" text-anchor="middle" fill="#a855f7" font-size="12">dataChanged()</text>
+  <text x="325" y="112" text-anchor="middle" fill="#a855f7" font-size="12">modelReset()</text>
+  <text x="325" y="135" text-anchor="middle" fill="#6a6a8a" font-size="10">内部信号 → 通知View</text>
+
+  <line x1="410" y1="100" x2="485" y2="100" stroke="#2ecc71" stroke-width="2" marker-end="url(#aView)"/>
+
+  <rect x="490" y="50" width="120" height="100" rx="10" fill="#16213e" stroke="#2ecc71" stroke-width="2"/>
+  <text x="550" y="95" text-anchor="middle" fill="#2ecc71" font-size="13" font-weight="bold">View 层</text>
+  <text x="550" y="115" text-anchor="middle" fill="#a0a0b0" font-size="11">收到通知</text>
+  <text x="550" y="135" text-anchor="middle" fill="#a0a0b0" font-size="11">自动刷新</text>
+
+  <defs>
+    <marker id="aSignal" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><polygon points="0,0 10,5 0,10" fill="#e94560"/></marker>
+    <marker id="aView" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><polygon points="0,0 10,5 0,10" fill="#2ecc71"/></marker>
+  </defs>
+</svg>
+</div>
+
+<h2>六大数据变更通知模式</h2>
+<table class="api-table">
+<tr><th>操作</th><th>成对方法</th><th>说明</th></tr>
+<tr>
+  <td style="color:var(--success);">插入行</td>
+  <td><code>beginInsertRows(parent, first, last)</code><br><code>endInsertRows()</code></td>
+  <td>必须先修改底层数据，再发通知</td>
+</tr>
+<tr>
+  <td style="color:var(--warn);">删除行</td>
+  <td><code>beginRemoveRows(parent, first, last)</code><br><code>endRemoveRows()</code></td>
+  <td>先通知，再删数据</td>
+</tr>
+<tr>
+  <td style="color:var(--accent2);">移动行 (Qt 6)</td>
+  <td><code>beginMoveRows(srcParent, srcFirst, srcLast, dstParent, dstRow)</code><br><code>endMoveRows()</code></td>
+  <td>Qt 6 新增，Qt 5 需手动 remove + insert</td>
+</tr>
+<tr>
+  <td style="color:var(--accent);">单元格更新</td>
+  <td><code>emit dataChanged(topLeft, bottomRight, roles)</code></td>
+  <td>不需要 begin/end 配对</td>
+</tr>
+<tr>
+  <td style="color:#a855f7;">列操作</td>
+  <td><code>beginInsertColumns / endInsertColumns</code><br><code>beginRemoveColumns / endRemoveColumns</code></td>
+  <td>表格模型专用</td>
+</tr>
+<tr>
+  <td style="color:#aaa;">全局重置</td>
+  <td><code>beginResetModel() / endResetModel()</code></td>
+  <td>大量数据变更时最简单的方式</td>
+</tr>
+</table>
+
+<h2>实战示例 — 添加行 + 删除行</h2>
+<pre><code><span class="type">void</span> EmployeeModel::<span class="func">addEmployee</span>(<span class="keyword">const</span> Employee &amp;emp) {
+    <span class="type">int</span> newRow = m_employees.<span class="func">size</span>();     <span class="comment">// 新行索引</span>
+    <span class="func">beginInsertRows</span>(QModelIndex(), newRow, newRow); <span class="comment">// 通知 View: 我要在第 newRow 行插入</span>
+    m_employees.<span class="func">append</span>(emp);                     <span class="comment">// ← 在这之间修改数据!</span>
+    <span class="func">endInsertRows</span>();                              <span class="comment">// 通知 View: 我插完了，刷新吧</span>
+}
+
+<span class="type">void</span> EmployeeModel::<span class="func">removeEmployee</span>(<span class="type">int</span> row) {
+    <span class="keyword">if</span> (row &lt; <span class="func">0</span> || row &gt;= m_employees.<span class="func">size</span>()) <span class="keyword">return</span>;
+    <span class="func">beginRemoveRows</span>(QModelIndex(), row, row);
+    m_employees.<span class="func">removeAt</span>(row);                   <span class="comment">// ← 在这之间删除数据!</span>
+    <span class="func">endRemoveRows</span>();
+}
+
+<span class="comment">// 批量更新单格</span>
+<span class="type">void</span> EmployeeModel::<span class="func">refreshRow</span>(<span class="type">int</span> row) {
+    <span class="keyword">auto</span> topLeft = <span class="func">index</span>(row, <span class="func">0</span>);
+    <span class="keyword">auto</span> bottomRight = <span class="func">index</span>(row, <span class="func">columnCount</span>() - <span class="func">1</span>);
+    <span class="func">emit</span> <span class="func">dataChanged</span>(topLeft, bottomRight);  <span class="comment">// 整行刷新</span>
+}</code></pre>
+
+<div class="tip-box warn">
+  <div class="tip-title">🔥 begin/end 必须严格配对！</div>
+  如果调用了 <code>beginInsertRows</code> 但忘了调用 <code>endInsertRows</code>（或者中间抛异常），
+  Model 会进入<b>不一致状态</b>，导致 View 崩溃或无法正常显示。<br>
+  <b>强烈推荐用 RAII 包装器</b>或在 try-catch 中确保 end 一定会被调用。
+</div>
+</div>
+
+<!-- Tab 4: 常用API速查 -->
+<div class="tab-panel" id="tab4">
+
+<h2>QAbstractTableModel / QAbstractListModel 核心 API</h2>
+
+<h3>必须实现的虚函数</h3>
+<table class="api-table">
+<tr><th>方法</th><th>TableModel</th><th>ListModel</th><th>说明</th></tr>
+<tr><td><code>rowCount(parent)</code></td><td style="color:var(--accent);text-align:center;">✅</td><td style="color:var(--accent);text-align:center;">✅</td><td>返回行数，parent.isValid() 时返回 0</td></tr>
+<tr><td><code>columnCount(parent)</code></td><td style="color:var(--accent);text-align:center;">✅</td><td style="color:var(--text2);text-align:center;">—</td><td>ListModel 默认返回 1（只有一列）</td></tr>
+<tr><td><code>data(index, role)</code></td><td style="color:var(--accent);text-align:center;">✅</td><td style="color:var(--accent);text-align:center;">✅</td><td>核心数据访问，根据 role 返回相应数据</td></tr>
+</table>
+
+<h3>常用可重写虚函数</h3>
+<table class="api-table">
+<tr><th>方法</th><th>用途</th></tr>
+<tr><td><code>flags(index)</code></td><td>返回 <code>Qt::ItemIsEditable | Qt::ItemIsSelectable | Qt::ItemIsEnabled</code> 等组合</td></tr>
+<tr><td><code>setData(index, value, role)</code></td><td>编辑回调，写回数据后必须 <code>emit dataChanged</code></td></tr>
+<tr><td><code>headerData(section, orientation, role)</code></td><td>提供行/列表头文本、图标等</td></tr>
+</table>
+
+<h3>继承自 QAbstractItemModel 的实用方法</h3>
+<table class="api-table">
+<tr><th>方法</th><th>说明</th></tr>
+<tr><td><code>index(row, column, parent)</code></td><td>创建 QModelIndex（通过 <code>createIndex()</code> 实现，TableModel 已封装）</td></tr>
+<tr><td><code>parent(index)</code></td><td>Table/List 模型始终返回无效 QModelIndex()</td></tr>
+<tr><td><code>sibling(row, column, index)</code></td><td>快速获取同层兄弟节点索引</td></tr>
+<tr><td><code>hasChildren(parent)</code></td><td>是否有子项，TableModel 若无父项则取决于 rowCount > 0</td></tr>
+<tr><td><code>canFetchMore(parent) / fetchMore(parent)</code></td><td>延迟加载/虚拟滚动（大数据集）</td></tr>
+<tr><td><code>insertRow(row, parent) / removeRow(row, parent)</code></td><td>便捷方法，内部调用 begin/end 对</td></tr>
+<tr><td><code>insertRows / removeRows</code></td><td>批量版本</td></tr>
+<tr><td><code>setHeaderData(section, orientation, value, role)</code></td><td>设置表头数据并发射 headerDataChanged</td></tr>
+<tr><td><code>submit() / revert()</code></td><td>配合 QDataWidgetMapper 的缓冲提交/撤销</td></tr>
+<tr><td><code>roleNames()</code></td><td>Qt 6: 返回自定义 role 名称映射，QML 必备</td></tr>
+<tr><td><code>checkIndex(index)</code></td><td>Qt 6: 调试用，检查 QModelIndex 是否合法</td></tr>
+</table>
+
+<h3>关键信号（继承自 QAbstractItemModel）</h3>
+<table class="api-table">
+<tr><th>信号</th><th>触发时机</th></tr>
+<tr><td><code>dataChanged(topLeft, bottomRight, roles)</code></td><td>数据值变更时，由你手动 emit</td></tr>
+<tr><td><code>headerDataChanged(orientation, first, last)</code></td><td>表头数据变更</td></tr>
+<tr><td><code>rowsInserted(parent, first, last)</code></td><td>endInsertRows 后自动发射</td></tr>
+<tr><td><code>rowsRemoved(parent, first, last)</code></td><td>endRemoveRows 后自动发射</td></tr>
+<tr><td><code>rowsMoved(...)</code></td><td>endMoveRows 后自动发射</td></tr>
+<tr><td><code>modelAboutToBeReset() / modelReset()</code></td><td>beginResetModel / endResetModel 对应</td></tr>
+<tr><td><code>layoutAboutToBeChanged() / layoutChanged()</code></td><td>行列结构重排（如排序）</td></tr>
+</table>
+
+<h3>ItemFlags 常用组合</h3>
+<table class="api-table">
+<tr><th>Flag</th><th>含义</th></tr>
+<tr><td><code>Qt::NoItemFlags</code></td><td>不可交互（空白单元格）</td></tr>
+<tr><td><code>Qt::ItemIsSelectable</code></td><td>可被选中</td></tr>
+<tr><td><code>Qt::ItemIsEditable</code></td><td>可被编辑（双击进入编辑模式）</td></tr>
+<tr><td><code>Qt::ItemIsEnabled</code></td><td>可用（非灰色），默认</td></tr>
+<tr><td><code>Qt::ItemIsDragEnabled</code></td><td>可拖出</td></tr>
+<tr><td><code>Qt::ItemIsDropEnabled</code></td><td>可接受拖入</td></tr>
+<tr><td><code>Qt::ItemIsUserCheckable</code></td><td>显示复选框</td></tr>
+<tr><td><code>Qt::ItemIsTristate</code></td><td>复选框三态（勾/部分勾/不勾）</td></tr>
+<tr><td><code>Qt::ItemNeverHasChildren</code></td><td>保证无子项，TableModel 常用</td></tr>
+</table>
+</div>
+
+<!-- Tab 5: 实战与避坑 -->
+<div class="tab-panel" id="tab5">
+
+<h2>🔟 条核心避坑要点</h2>
+
+<div class="tip-box warn">
+  <div class="tip-title">① parent.isValid() 必须返回 0</div>
+  TableModel 和 ListModel 是<b>扁平模型</b>，没有任何层级。当你收到 <code>parent.isValid() == true</code> 的请求时，直接返回 0 —— 因为你的数据没有子节点。
+</div>
+
+<div class="tip-box warn">
+  <div class="tip-title">② 永远不要存储 QModelIndex</div>
+  <code>QModelIndex</code> 是<b>瞬态对象</b>。每次数据变更后，旧的 QModelIndex 可能失效。<br>
+  如果你需要跨操作记住某个位置，存储 <b>数据本身的 ID/主键</b>，而不是 QModelIndex。
+</div>
+
+<div class="tip-box warn">
+  <div class="tip-title">③ data() 中 index.isValid() 检查是必须的</div>
+  View 可能在各种边界情况下传递无效 index（如 -1 行），你必须在 <code>data()</code> 最前面检查 <code>index.isValid()</code>。
+</div>
+
+<div class="tip-box warn">
+  <div class="tip-title">④ 不要在 data() 中做耗时操作</div>
+  <code>data()</code> 会被频繁调用（每次重绘、每次滚动）。如果里面有数据库查询、网络请求、复杂计算，View 会严重卡顿。<br>
+  <b>解决方案</b>：缓存计算结果、预加载数据、使用 <code>canFetchMore()</code> 懒加载。
+</div>
+
+<div class="tip-box warn">
+  <div class="tip-title">⑤ setData 后忘记 emit dataChanged</div>
+  View 不会自动感知内存数据的变化。必须显式发射 <code>dataChanged</code> 信号。
+</div>
+
+<div class="tip-box warn">
+  <div class="tip-title">⑥ beginInsertRows 的参数含义</div>
+  <code>beginInsertRows(parent, first, last)</code> 中 <b>first 是插入后第一行的索引</b>，<b>last 是插入后最后一行的索引</b>。<br>
+  例如要在末尾插入 1 行，当前有 10 行：<code>beginInsertRows(QModelIndex(), 10, 10)</code>，不是 9！
+</div>
+
+<div class="tip-box warn">
+  <div class="tip-title">⑦ begin/end 之间不要发射信号或处理事件</div>
+  在 <code>beginInsertRows</code> 和 <code>endInsertRows</code> 之间只修改数据，不要调用 <code>processEvents()</code>，
+  不要发射其他可能触发 View 更新的信号，否则会导致未定义行为。
+</div>
+
+<div class="tip-box warn">
+  <div class="tip-title">⑧ 线程安全</div>
+  Model 的所有方法都必须在 <b>GUI 线程（主线程）</b> 中调用。如果数据来自工作线程，
+  在工作线程中准备好数据后，通过信号槽将数据传回主线程，再由主线程调用 begin/end 系列方法。
+</div>
+
+<div class="tip-box warn">
+  <div class="tip-title">⑨ beginResetModel 是最简单的刷新方式</div>
+  当你不确定数据变了多少、或者需要整体替换时，用 <code>beginResetModel()</code> / <code>endResetModel()</code> 最安全。<br>
+  <b>代价</b>：View 会丢失所有选中状态、滚动位置、展开状态。
+</div>
+
+<div class="tip-box warn">
+  <div class="tip-title">⑩ 与 QSortFilterProxyModel 联用时特别注意</div>
+  <code>proxyModel->mapToSource(proxyIndex)</code> 才能拿到源 Model 的 index。<br>
+  <code>proxyModel->mapFromSource(sourceIndex)</code> 才有对应的代理层 index。<br>
+  在自定义 Model 的 <code>data()</code> 中接收到的 index 始终是 <b>源 Model 的 index</b>（代理层透明）。
+</div>
+
+<h2>🏆 最佳实践</h2>
+<ol style="color:var(--text2);padding-left:20px;line-height:2.2;">
+  <li><b>数据与 Model 零拷贝</b>：让 Model 直接引用你的数据结构，避免 <code>QStandardItemModel</code> 的双向同步。</li>
+  <li><b>用 QVector / std::vector 存数据</b>：O(1) 随机访问，适合 <code>data()</code> 频繁按行索引的场景。</li>
+  <li><b>RAII 包装 begin/end 对</b>：写一个 <code>RowInsertionGuard</code> 类，构造调 begin，析构调 end。</li>
+  <li><b>自定义 role</b>：用 <code>Qt::UserRole + 1</code>、<code>Qt::UserRole + 2</code> 传递自定义数据，不要挤在 DisplayRole。</li>
+  <li><b>配合 QStyledItemDelegate</b>：用 delegate 渲染复杂视觉效果（进度条、星级、图表），Model 只负责数据。</li>
+  <li><b>配合 QSortFilterProxyModel</b>：Model 只存原始数据，过滤和排序交给代理层。</li>
+  <li><b>尽量用具体的子类</b>：写列表就继承 ListModel，写表格就继承 TableModel，不要什么都从 ItemModel 开始。</li>
+  <li><b>单元测试友好</b>：自定义 Model 不依赖任何 View，可以直接在单元测试中实例化和调用 <code>data()</code>。</li>
+</ol>
+
+<h2>与已学主题的联动</h2>
+<table class="cmp-table">
+<tr><th>已学主题</th><th>与 QAbstractTableModel 的关系</th></tr>
+<tr>
+  <td>QSortFilterProxyModel</td>
+  <td>代理层 → 包装你的自定义 Model，提供过滤/排序</td>
+</tr>
+<tr>
+  <td>QStyledItemDelegate</td>
+  <td>渲染代理 → 接管你的 Model 的显示逻辑</td>
+</tr>
+<tr>
+  <td>QVariant</td>
+  <td>data() 返回值类型，需熟练掌握类型转换</td>
+</tr>
+<tr>
+  <td>QJsonDocument</td>
+  <td>可以从 JSON 构建 Model（如 REST API 响应 → 表格）</td>
+</tr>
+<tr>
+  <td>QDataStream</td>
+  <td>可以序列化/反序列化 Model 底层数据</td>
+</tr>
+</table>
+</div>
+
+</div><!-- .content -->
+
+<script>
+// ====== 只读 Demo 数据 ======
+let demoEmployees = [
+  {name:"张三", dept:"研发部", title:"高级工程师", salary:28000, hire:"2023-03-15"},
+  {name:"李四", dept:"产品部", title:"产品经理", salary:25000, hire:"2022-11-01"},
+  {name:"王五", dept:"研发部", title:"架构师", salary:42000, hire:"2020-06-20"},
+  {name:"赵六", dept:"设计部", title:"UI设计师", salary:20000, hire:"2024-01-10"},
+  {name:"孙七", dept:"测试部", title:"测试主管", salary:22000, hire:"2021-09-05"},
+];
+let demoSortCol = -1, demoSortAsc = true;
+let nextDemoId = 6;
+const demoNames = ["钱八","周九","吴十","郑十一","冯十二","陈十三","褚十四","卫十五","蒋十六","沈十七"];
+const demoDepts = ["研发部","产品部","设计部","测试部","运维部","市场部"];
+const demoTitles = ["工程师","高级工程师","架构师","产品经理","设计师","测试工程师","项目经理"];
+const demoUsedNames = new Set();
+
+function renderDemoTable() {
+  let data = [...demoEmployees];
+  if (demoSortCol >= 0) {
+    data.sort((a,b) => {
+      let va = Object.values(a)[demoSortCol], vb = Object.values(b)[demoSortCol];
+      if (typeof va === 'number') return demoSortAsc ? va-vb : vb-va;
+      return demoSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+    });
+  }
+  let html = '';
+  data.forEach((e,i) => {
+    html += `<tr><td>${e.name}</td><td>${e.dept}</td><td>${e.title}</td><td>¥${e.salary.toLocaleString()}</td><td>${e.hire}</td></tr>`;
+  });
+  document.getElementById('demo-tbody').innerHTML = html;
+  document.getElementById('demo-info').textContent = `共 ${demoEmployees.length} 条记录`;
+}
+
+function sortDemo(col) {
+  if (demoSortCol === col) { demoSortAsc = !demoSortAsc; }
+  else { demoSortCol = col; demoSortAsc = true; }
+  renderDemoTable();
+}
+function addDemoRow() {
+  if (demoEmployees.length >= 30) return;
+  let name;
+  for (let n of demoNames) { if (!demoUsedNames.has(n)) { name = n; demoUsedNames.add(n); break; } }
+  if (!name) { name = `员工${nextDemoId}`; demoUsedNames.add(name); }
+  demoEmployees.push({
+    name, dept: demoDepts[Math.floor(Math.random()*demoDepts.length)],
+    title: demoTitles[Math.floor(Math.random()*demoTitles.length)],
+    salary: Math.floor(15000 + Math.random()*30000),
+    hire: `202${3+Math.floor(Math.random()*4)}-${String(Math.floor(1+Math.random()*12)).padStart(2,'0')}-${String(Math.floor(1+Math.random()*28)).padStart(2,'0')}`
+  });
+  nextDemoId++;
+  renderDemoTable();
+}
+function shuffleDemo() {
+  demoEmployees = [];
+  demoUsedNames.clear();
+  const count = 5 + Math.floor(Math.random()*8);
+  for (let i=0; i<count; i++) { addDemoRow(); }
+  renderDemoTable();
+}
+function resetDemo() {
+  demoEmployees = [
+    {name:"张三", dept:"研发部", title:"高级工程师", salary:28000, hire:"2023-03-15"},
+    {name:"李四", dept:"产品部", title:"产品经理", salary:25000, hire:"2022-11-01"},
+    {name:"王五", dept:"研发部", title:"架构师", salary:42000, hire:"2020-06-20"},
+    {name:"赵六", dept:"设计部", title:"UI设计师", salary:20000, hire:"2024-01-10"},
+    {name:"孙七", dept:"测试部", title:"测试主管", salary:22000, hire:"2021-09-05"},
+  ];
+  demoUsedNames.clear();
+  nextDemoId = 6;
+  demoSortCol = -1;
+  renderDemoTable();
+}
+
+// ====== 可编辑 Demo 数据 ======
+let editableEmployees = [
+  {name:"张三", dept:"研发部", title:"高级工程师", salary:28000, hire:"2023-03-15"},
+  {name:"李四", dept:"产品部", title:"产品经理", salary:25000, hire:"2022-11-01"},
+  {name:"王五", dept:"研发部", title:"架构师", salary:42000, hire:"2020-06-20"},
+];
+let nextEdId = 4;
+const edNames = ["赵六","钱七","孙八","周九","吴十"];
+const edDepts = ["研发部","产品部","设计部","测试部"];
+const edTitles = ["工程师","高级工程师","架构师","产品经理","设计师","测试工程师"];
+let editingCell = null;
+let editValue = '';
+
+function renderEditableTable() {
+  let html = '';
+  editableEmployees.forEach((e, row) => {
+    let cells = [e.name, e.dept, e.title, '¥'+e.salary.toLocaleString(), e.hire];
+    html += '<tr>';
+    cells.forEach((val, col) => {
+      let isEditing = editingCell && editingCell.row === row && editingCell.col === col;
+      if (isEditing) {
+        html += `<td><input id="edit-input" value="${editValue}" onkeydown="handleEditKey(event,${row},${col})" onblur="commitEdit(${row},${col})" autofocus></td>`;
+      } else {
+        html += `<td class="editable-cell" onclick="startEdit(${row},${col},'${editEscape(val)}')">${val}</td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  document.getElementById('editable-tbody').innerHTML = html;
+  document.getElementById('editable-info').textContent = `共 ${editableEmployees.length} 条 (双击编辑)`;
+  if (editingCell) {
+    setTimeout(() => {
+      let inp = document.getElementById('edit-input');
+      if (inp) { inp.focus(); inp.select(); }
+    }, 50);
+  }
+}
+
+function editEscape(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
+
+function startEdit(row, col, currentVal) {
+  editingCell = {row, col};
+  editValue = currentVal.replace(/^¥/,'');
+  renderEditableTable();
+}
+function handleEditKey(event, row, col) {
+  if (event.key === 'Enter') { event.preventDefault(); commitEdit(row, col); }
+  if (event.key === 'Escape') { editingCell = null; renderEditableTable(); }
+}
+function commitEdit(row, col) {
+  if (!editingCell) return;
+  let newVal = document.getElementById('edit-input')?.value || editValue;
+  let emp = editableEmployees[row];
+  const cols = ['name','dept','title','salary','hire'];
+  let field = cols[col];
+  if (field === 'salary') { emp.salary = parseInt(newVal) || emp.salary; }
+  else { emp[field] = newVal; }
+  // 模拟 dataChanged 信号
+  document.getElementById('editable-info').textContent = `✅ dataChanged: row=${row}, col=${col}, new="${newVal}"`;
+  editingCell = null;
+  renderEditableTable();
+  // 3秒后恢复提示
+  setTimeout(() => {
+    document.getElementById('editable-info').textContent = `共 ${editableEmployees.length} 条 (双击编辑)`;
+  }, 2000);
+}
+function addEditableRow() {
+  let name = edNames[Math.floor(Math.random()*edNames.length)];
+  editableEmployees.push({
+    name: name + (nextEdId > 9 ? nextEdId : ''),
+    dept: edDepts[Math.floor(Math.random()*edDepts.length)],
+    title: edTitles[Math.floor(Math.random()*edTitles.length)],
+    salary: Math.floor(15000 + Math.random()*30000),
+    hire: `202${3+Math.floor(Math.random()*4)}-${String(Math.floor(1+Math.random()*12)).padStart(2,'0')}-${String(Math.floor(1+Math.random()*28)).padStart(2,'0')}`
+  });
+  nextEdId++;
+  // 模拟 beginInsertRows / endInsertRows
+  document.getElementById('editable-info').textContent = `📡 beginInsertRows(_, ${editableEmployees.length-1}, ${editableEmployees.length-1}) → endInsertRows()`;
+  renderEditableTable();
+  setTimeout(() => {
+    document.getElementById('editable-info').textContent = `共 ${editableEmployees.length} 条 (双击编辑)`;
+  }, 2000);
+}
+function removeEditableRow() {
+  if (editableEmployees.length <= 1) return;
+  let idx = editingCell ? editingCell.row : editableEmployees.length - 1;
+  editingCell = null;
+  // 模拟 beginRemoveRows / endRemoveRows
+  document.getElementById('editable-info').textContent = `📡 beginRemoveRows(_, ${idx}, ${idx}) → endRemoveRows()`;
+  editableEmployees.splice(idx, 1);
+  renderEditableTable();
+  setTimeout(() => {
+    document.getElementById('editable-info').textContent = `共 ${editableEmployees.length} 条 (双击编辑)`;
+  }, 2000);
+}
+
+// ====== Tab 切换 ======
+function switchTab(idx) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab'+idx).classList.add('active');
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  if (idx === 2) renderEditableTable();
+}
+
+// 初始化
+renderDemoTable();
+renderEditableTable();
+</script>
+
+</body>
+</html>

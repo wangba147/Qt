@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qt QStyledItemDelegate — 自定义委托</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --card: #16213e;
+  --card2: #0f3460;
+  --accent: #e94560;
+  --accent2: #0ea5e9;
+  --text: #e0e0e0;
+  --text2: #a0a0b0;
+  --border: #2a2a4a;
+  --code-bg: #0d1117;
+  --green: #10b981;
+  --yellow: #f59e0b;
+  --purple: #8b5cf6;
+  --orange: #f97316;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  min-height: 100vh;
+}
+.container { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 48px 20px 32px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 28px;
+}
+.header .icon { font-size: 56px; margin-bottom: 10px; }
+.header h1 { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+.header h1 span { color: var(--accent); }
+.header .subtitle { color: var(--text2); font-size: 15px; }
+.header .meta { 
+  display: flex; gap: 16px; justify-content: center; margin-top: 14px; flex-wrap: wrap;
+}
+.header .meta .badge {
+  background: var(--card2); color: var(--accent2); padding: 4px 14px; border-radius: 20px;
+  font-size: 13px; font-weight: 600;
+}
+
+/* Tabs */
+.tabs {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 20px;
+  background: var(--card); border-radius: 12px; padding: 6px;
+}
+.tab-btn {
+  padding: 10px 20px; border: none; background: transparent; color: var(--text2);
+  font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 8px;
+  transition: all .2s; font-family: inherit; white-space: nowrap;
+}
+.tab-btn:hover { color: #fff; background: rgba(255,255,255,.06); }
+.tab-btn.active { color: #fff; background: var(--accent); }
+
+/* Tab Content */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn .3s; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* Cards */
+.card {
+  background: var(--card); border-radius: 14px; padding: 28px; margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+.card h2 { font-size: 22px; color: #fff; margin-bottom: 6px; }
+.card h3 { font-size: 17px; color: var(--accent2); margin: 20px 0 10px; }
+.card h4 { font-size: 15px; color: var(--yellow); margin: 14px 0 8px; }
+.card p { color: var(--text2); margin-bottom: 10px; font-size: 14px; }
+.card ul, .card ol { color: var(--text2); padding-left: 24px; margin-bottom: 10px; font-size: 14px; }
+.card li { margin-bottom: 4px; }
+
+/* Code Block */
+.code-block {
+  background: var(--code-bg); border-radius: 10px; padding: 18px 22px;
+  margin: 12px 0; overflow-x: auto; position: relative;
+  border: 1px solid var(--border); font-size: 13px; line-height: 1.6;
+}
+.code-block code {
+  font-family: "Fira Code", "Cascadia Code", "JetBrains Mono", "Consolas", monospace;
+  color: #c9d1d9; white-space: pre;
+}
+.code-block .kw { color: #ff7b72; }
+.code-block .fn { color: #d2a8ff; }
+.code-block .str { color: #a5d6ff; }
+.code-block .cmt { color: #8b949e; font-style: italic; }
+.code-block .num { color: #79c0ff; }
+.code-block .cls { color: #ffa657; }
+.code-block .macro { color: #7ee787; }
+.code-block .label {
+  position: absolute; top: 8px; right: 14px; color: var(--text2); font-size: 11px;
+  background: var(--card2); padding: 2px 10px; border-radius: 10px;
+}
+
+/* Architecture Diagram */
+.arch-diagram {
+  display: flex; align-items: center; justify-content: center; gap: 20px;
+  flex-wrap: wrap; padding: 20px 0;
+}
+.arch-box {
+  background: var(--card2); border-radius: 12px; padding: 18px 24px;
+  text-align: center; min-width: 140px; border: 2px solid var(--border);
+}
+.arch-box.main { border-color: var(--accent); background: linear-gradient(135deg, #1a1a3e, #2a1a3e); }
+.arch-box .box-title { font-weight: 700; font-size: 16px; color: #fff; margin-bottom: 6px; }
+.arch-box .box-desc { font-size: 12px; color: var(--text2); }
+.arch-arrow { font-size: 24px; color: var(--accent2); font-weight: bold; }
+
+/* Two column */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 768px) { .cols { grid-template-columns: 1fr; } }
+
+/* API Table */
+.api-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+.api-table th {
+  background: var(--card2); color: var(--accent2); padding: 10px 14px;
+  text-align: left; font-weight: 700; font-size: 13px;
+}
+.api-table td {
+  padding: 9px 14px; border-bottom: 1px solid var(--border); color: var(--text2);
+}
+.api-table tr:hover td { background: rgba(255,255,255,.03); }
+.api-table .fn-name { color: #d2a8ff; font-family: monospace; font-weight: 600; }
+
+/* Interactive Demo */
+.demo-area {
+  background: #0d1117; border-radius: 14px; padding: 20px; margin: 16px 0;
+  border: 1px solid var(--border);
+}
+.demo-area .demo-title {
+  color: var(--accent2); font-weight: 700; font-size: 14px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.demo-table {
+  width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px;
+}
+.demo-table th {
+  background: var(--card2); color: #fff; padding: 8px 12px; text-align: left;
+  font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+}
+.demo-table td {
+  padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text);
+  transition: background .2s;
+}
+.demo-table tr:hover td { background: rgba(255,255,255,.04); }
+
+/* Custom rendered table cell */
+.cell-stars { color: var(--yellow); font-size: 16px; letter-spacing: 2px; }
+.cell-progress { 
+  display: inline-block; height: 8px; background: var(--accent2); border-radius: 4px;
+  vertical-align: middle; margin-right: 6px;
+}
+.cell-priority { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+.cell-priority.high { background: rgba(233,69,96,.2); color: var(--accent); }
+.cell-priority.medium { background: rgba(245,158,11,.2); color: var(--yellow); }
+.cell-priority.low { background: rgba(16,185,129,.2); color: var(--green); }
+
+.demo-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.demo-btn {
+  padding: 7px 16px; border: 1px solid var(--accent2); background: transparent;
+  color: var(--accent2); border-radius: 8px; cursor: pointer; font-size: 13px;
+  font-weight: 600; transition: all .2s; font-family: inherit;
+}
+.demo-btn:hover { background: var(--accent2); color: #fff; }
+.demo-btn.active { background: var(--accent2); color: #fff; }
+
+/* Info boxes */
+.info-box {
+  border-radius: 10px; padding: 14px 18px; margin: 12px 0; font-size: 13px;
+}
+.info-box.tip { background: rgba(14,165,233,.1); border-left: 4px solid var(--accent2); color: #bae6fd; }
+.info-box.warn { background: rgba(245,158,11,.1); border-left: 4px solid var(--yellow); color: #fde68a; }
+.info-box.danger { background: rgba(233,69,96,.1); border-left: 4px solid var(--accent); color: #fecaca; }
+
+/* Tag */
+.tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; margin-left:6px; }
+.tag.qt5 { background:rgba(139,92,246,.2); color:#a78bfa; }
+.tag.qt6 { background:rgba(16,185,129,.2); color:#34d399; }
+
+/* Footer */
+.footer {
+  text-align: center; padding: 30px 0 0; border-top: 1px solid var(--border);
+  margin-top: 40px; color: var(--text2); font-size: 13px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <div class="icon">&#x1F3A8;</div>
+  <h1>QStyledItemDelegate <span>自定义委托</span></h1>
+  <div class="subtitle">Qt Model/View 框架中的"自定义渲染引擎" —— 让列表项随心所欲地展示和编辑</div>
+  <div class="meta">
+    <span class="badge">Qt Widgets</span>
+    <span class="badge">Model/View</span>
+    <span class="badge">2026-06-09</span>
+  </div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab-btn active" data-tab="concept">&#x1F9E0; 概念与架构</button>
+  <button class="tab-btn" data-tab="basic">&#x1F4DD; 基础用法</button>
+  <button class="tab-btn" data-tab="custom-paint">&#x1F3A8; 自定义渲染</button>
+  <button class="tab-btn" data-tab="custom-editor">&#x270F;&#xFE0F; 自定义编辑器</button>
+  <button class="tab-btn" data-tab="api">&#x1F4CB; 常用API速查</button>
+  <button class="tab-btn" data-tab="pitfalls">&#x26A0;&#xFE0F; 避坑要点</button>
+</div>
+
+<!-- ===== TAB: 概念与架构 ===== -->
+<div class="tab-panel active" id="tab-concept">
+  <div class="card">
+    <h2>&#x1F9E0; 委托是什么？为什么需要它？</h2>
+    <p>在 Qt 的 <strong>Model/View</strong> 架构中，<strong>View</strong> 负责展示，<strong>Model</strong> 负责数据，那"怎么展示"由谁决定？答案就是 <strong>Delegate（委托）</strong>。</p>
+
+    <div class="arch-diagram">
+      <div class="arch-box">
+        <div class="box-title">&#x1F4E6; Model</div>
+        <div class="box-desc">数据存储</div>
+        <div class="box-desc" style="margin-top:4px;font-size:11px;">QAbstractItemModel</div>
+      </div>
+      <div class="arch-arrow">&#x27A1;</div>
+      <div class="arch-box main">
+        <div class="box-title">&#x1F3A8; Delegate</div>
+        <div class="box-desc">渲染 + 编辑</div>
+        <div class="box-desc" style="margin-top:4px;font-size:11px;">QStyledItemDelegate</div>
+      </div>
+      <div class="arch-arrow" style="font-size:12px;color:var(--yellow);">控制展示</div>
+      <div class="arch-box">
+        <div class="box-title">&#x1F4FA; View</div>
+        <div class="box-desc">展示容器</div>
+        <div class="box-desc" style="margin-top:4px;font-size:11px;">QListView / QTableView</div>
+      </div>
+    </div>
+
+    <div class="info-box tip">
+      <strong>&#x1F4A1; 一句话总结：</strong>Delegate 是 View 和 Model 之间的"渲染插件"——Model 提供数据，Delegate 决定每一行、每一列如何在屏幕上画出来。
+    </div>
+
+    <h3>QStyledItemDelegate vs QItemDelegate</h3>
+    <p>Qt 提供两个委托基类，<strong>QStyledItemDelegate 是 Qt 4.4 后推荐的默认选择</strong>：</p>
+    <table class="api-table">
+      <tr><th>特性</th><th>QStyledItemDelegate <span class="tag qt5">推荐</span></th><th>QItemDelegate</th></tr>
+      <tr><td>样式集成</td><td>&#x2705; 完整支持 QSS 样式表</td><td>&#x274C; 不支持样式表</td></tr>
+      <tr><td>默认编辑器</td><td>QDateTimeEdit / QDoubleSpinBox 等</td><td>QLineEdit 为主</td></tr>
+      <tr><td>平台外观</td><td>&#x2705; 跟随系统主题</td><td>经典风格</td></tr>
+      <tr><td>推荐场景</td><td>现代 Qt 应用（99% 情况）</td><td>旧版兼容 / 特殊需求</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>委托的核心职责（5个虚函数）</h3>
+    <p>继承 QStyledItemDelegate 后，你可以重写以下虚函数来完全掌控渲染和编辑：</p>
+    <div class="cols">
+      <div>
+        <h4>&#x1F4A0; 渲染相关</h4>
+        <ul>
+          <li><strong>paint()</strong> — 自定义绘制每一行/格</li>
+          <li><strong>sizeHint()</strong> — 返回每行/格的推荐尺寸</li>
+          <li><strong>displayText()</strong> <span class="tag qt5">Qt 6</span> — 自定义文本格式化</li>
+        </ul>
+      </div>
+      <div>
+        <h4>&#x270F;&#xFE0F; 编辑相关</h4>
+        <ul>
+          <li><strong>createEditor()</strong> — 创建编辑控件</li>
+          <li><strong>setEditorData()</strong> — 把 Model 数据装入编辑器</li>
+          <li><strong>setModelData()</strong> — 把编辑结果写回 Model</li>
+          <li><strong>updateEditorGeometry()</strong> — 调整编辑器位置/大小</li>
+        </ul>
+      </div>
+    </div>
+    <div class="info-box tip" style="margin-top:12px;">
+      <strong>&#x1F4A1; 默认行为：</strong>如果不重写 paint()，QStyledItemDelegate 会用 QStyle 绘制标准的文本/图标/复选框——对大多数场景已经够用，只有需要"花里胡哨"时才自定义。
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: 基础用法 ===== -->
+<div class="tab-panel" id="tab-basic">
+  <div class="card">
+    <h2>&#x1F4DD; 三步接入委托</h2>
+    <p>使用委托非常简单，只需创建、子类化、设置给 View：</p>
+
+    <h3>步骤1：继承 QStyledItemDelegate</h3>
+    <div class="code-block">
+      <span class="label">mydelegate.h</span>
+      <code><span class="macro">#include</span> <span class="str">&lt;QStyledItemDelegate&gt;</span>
+
+<span class="kw">class</span> <span class="cls">MyDelegate</span> : <span class="kw">public</span> QStyledItemDelegate
+{
+    Q_OBJECT
+<span class="kw">public</span>:
+    <span class="kw">explicit</span> <span class="fn">MyDelegate</span>(QObject *parent = <span class="kw">nullptr</span>);
+
+    <span class="cmt">// 核心重写</span>
+    <span class="kw">void</span> <span class="fn">paint</span>(QPainter *painter,
+               <span class="kw">const</span> QStyleOptionViewItem &amp;option,
+               <span class="kw">const</span> QModelIndex &amp;index) <span class="kw">const override</span>;
+
+    QSize <span class="fn">sizeHint</span>(<span class="kw">const</span> QStyleOptionViewItem &amp;option,
+                  <span class="kw">const</span> QModelIndex &amp;index) <span class="kw">const override</span>;
+};</code>
+    </div>
+
+    <h3>步骤2：实现 paint() 和 sizeHint()</h3>
+    <div class="code-block">
+      <span class="label">mydelegate.cpp</span>
+      <code><span class="kw">void</span> MyDelegate::<span class="fn">paint</span>(QPainter *painter,
+                        <span class="kw">const</span> QStyleOptionViewItem &amp;option,
+                        <span class="kw">const</span> QModelIndex &amp;index) <span class="kw">const</span>
+{
+    <span class="cmt">// 1. 绘制选中/悬停背景（保持原生样式）</span>
+    QStyledItemDelegate::<span class="fn">paint</span>(painter, option, index);
+
+    <span class="cmt">// 2. 获取数据</span>
+    QString text = index.<span class="fn">data</span>(Qt::DisplayRole).<span class="fn">toString</span>();
+
+    <span class="cmt">// 3. 自定义绘制</span>
+    painter-&gt;<span class="fn">save</span>();
+    painter-&gt;<span class="fn">setPen</span>(Qt::blue);
+    painter-&gt;<span class="fn">setFont</span>(QFont(<span class="str">"Arial"</span>, <span class="num">12</span>, QFont::Bold));
+    painter-&gt;<span class="fn">drawText</span>(option.rect.<span class="fn">adjusted</span>(<span class="num">5</span>,<span class="num">0</span>,<span class="num">0</span>,<span class="num">0</span>),
+                     Qt::AlignVCenter, text);
+    painter-&gt;<span class="fn">restore</span>();
+}
+
+QSize MyDelegate::<span class="fn">sizeHint</span>(<span class="kw">const</span> QStyleOptionViewItem &amp;option,
+                               <span class="kw">const</span> QModelIndex &amp;index) <span class="kw">const</span>
+{
+    <span class="kw">return</span> QSize(<span class="num">200</span>, <span class="num">40</span>);  <span class="cmt">// 每行 200x40 像素</span>
+}</code>
+    </div>
+
+    <h3>步骤3：设置给 View</h3>
+    <div class="code-block">
+      <span class="label">mainwindow.cpp</span>
+      <code><span class="kw">auto</span> *listView = <span class="kw">new</span> QListView;
+<span class="kw">auto</span> *model = <span class="kw">new</span> QStringListModel;
+<span class="kw">auto</span> *delegate = <span class="kw">new</span> MyDelegate(<span class="kw">this</span>);
+
+listView-&gt;<span class="fn">setModel</span>(model);
+listView-&gt;<span class="fn">setItemDelegate</span>(delegate);      <span class="cmt">// 🔑 关键一步</span>
+
+<span class="cmt">// 对于 QTableView，可分别为不同列设置不同委托</span>
+tableView-&gt;<span class="fn">setItemDelegateForColumn</span>(<span class="num">2</span>, ratingDelegate);
+tableView-&gt;<span class="fn">setItemDelegateForRow</span>(<span class="num">0</span>, headerDelegate);</code>
+    </div>
+
+    <div class="info-box tip">
+      <strong>&#x1F4A1; 小技巧：</strong>QTableView 支持 <strong>按列</strong>、<strong>按行</strong> 甚至让某一列使用特殊的委托（如进度条列、星级评分列），非常灵活。
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: 自定义渲染 ===== -->
+<div class="tab-panel" id="tab-custom-paint">
+  <div class="card">
+    <h2>&#x1F3A8; 实战：多种自定义渲染效果</h2>
+    <p>下面是一个完整委托类，演示了<strong>星级评分</strong>、<strong>进度条</strong>、<strong>优先级标签</strong>三种自定义渲染——在实际应用中非常常见。</p>
+
+    <h3>完整委托类实现</h3>
+    <div class="code-block">
+      <span class="label">ratingdelegate.h / .cpp</span>
+      <code><span class="kw">class</span> <span class="cls">RatingDelegate</span> : <span class="kw">public</span> QStyledItemDelegate
+{
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">paint</span>(QPainter *p, <span class="kw">const</span> QStyleOptionViewItem &amp;opt,
+               <span class="kw">const</span> QModelIndex &amp;idx) <span class="kw">const override</span>
+    {
+        <span class="cmt">// 先画背景（选中/悬停效果）</span>
+        QStyledItemDelegate::<span class="fn">paint</span>(p, opt, idx);
+
+        p-&gt;<span class="fn">save</span>();
+        <span class="kw">int</span> col = idx.<span class="fn">column</span>();
+
+        <span class="kw">if</span> (col == <span class="num">1</span>) {  <span class="cmt">// 星级评分列 ⭐</span>
+            <span class="kw">int</span> stars = idx.<span class="fn">data</span>(Qt::DisplayRole).<span class="fn">toInt</span>();
+            QString starStr;
+            <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; <span class="num">5</span>; ++i)
+                starStr += i &lt; stars ? <span class="str">"★"</span> : <span class="str">"☆"</span>;
+            p-&gt;<span class="fn">setFont</span>(QFont(<span class="str">"Segoe UI Symbol"</span>, <span class="num">16</span>));
+            p-&gt;<span class="fn">setPen</span>(QColor(<span class="str">"#f59e0b"</span>));  <span class="cmt">// 金色</span>
+            p-&gt;<span class="fn">drawText</span>(opt.rect, Qt::AlignCenter, starStr);
+
+        } <span class="kw">else</span> <span class="kw">if</span> (col == <span class="num">2</span>) {  <span class="cmt">// 进度条列 📊</span>
+            <span class="kw">int</span> pct = idx.<span class="fn">data</span>(Qt::DisplayRole).<span class="fn">toInt</span>();
+            QRect bar = opt.rect.<span class="fn">adjusted</span>(<span class="num">8</span>,<span class="num">12</span>,-<span class="num">8</span>,-<span class="num">12</span>);
+            QRect fill = bar;
+            fill.<span class="fn">setWidth</span>(bar.<span class="fn">width</span>() * pct / <span class="num">100</span>);
+
+            <span class="cmt">// 背景</span>
+            p-&gt;<span class="fn">fillRect</span>(bar, QColor(<span class="num">40</span>,<span class="num">40</span>,<span class="num">50</span>));
+            <span class="cmt">// 填充</span>
+            QColor fillColor = pct &gt; <span class="num">70</span> ? QColor(<span class="str">"#10b981"</span>)
+                              : pct &gt; <span class="num">30</span> ? QColor(<span class="str">"#0ea5e9"</span>)
+                              : QColor(<span class="str">"#e94560"</span>);
+            p-&gt;<span class="fn">fillRect</span>(fill, fillColor);
+            <span class="cmt">// 文字</span>
+            p-&gt;<span class="fn">setPen</span>(Qt::white);
+            p-&gt;<span class="fn">drawText</span>(bar, Qt::AlignCenter,
+                       QString(<span class="str">"%1%"</span>).<span class="fn">arg</span>(pct));
+
+        } <span class="kw">else</span> <span class="kw">if</span> (col == <span class="num">3</span>) {  <span class="cmt">// 优先级标签列 🏷️</span>
+            QString prio = idx.<span class="fn">data</span>(Qt::DisplayRole).<span class="fn">toString</span>();
+            QColor bg, fg;
+            <span class="kw">if</span> (prio == <span class="str">"高"</span>) { bg = QColor(<span class="str">"#e94560"</span>); fg = Qt::white; }
+            <span class="kw">else</span> <span class="kw">if</span> (prio == <span class="str">"中"</span>) { bg = QColor(<span class="str">"#f59e0b"</span>); fg = QColor(<span class="str">"#1a1a2e"</span>); }
+            <span class="kw">else</span> { bg = QColor(<span class="str">"#10b981"</span>); fg = Qt::white; }
+
+            QRect tagRect = opt.rect.<span class="fn">adjusted</span>(<span class="num">16</span>,<span class="num">10</span>,-<span class="num">16</span>,-<span class="num">10</span>);
+            p-&gt;<span class="fn">setBrush</span>(bg);
+            p-&gt;<span class="fn">setPen</span>(Qt::NoPen);
+            p-&gt;<span class="fn">drawRoundedRect</span>(tagRect, <span class="num">6</span>, <span class="num">6</span>);
+            p-&gt;<span class="fn">setPen</span>(fg);
+            p-&gt;<span class="fn">drawText</span>(tagRect, Qt::AlignCenter, prio);
+        }
+        p-&gt;<span class="fn">restore</span>();
+    }
+
+    QSize <span class="fn">sizeHint</span>(<span class="kw">const</span> QStyleOptionViewItem &amp;opt,
+                   <span class="kw">const</span> QModelIndex &amp;idx) <span class="kw">const override</span>
+    {
+        <span class="kw">return</span> QSize(<span class="num">150</span>, <span class="num">44</span>);  <span class="cmt">// 更舒适的行高</span>
+    }
+};</code>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#x1F4FA; 在线演示：自定义渲染效果</h3>
+    <div class="demo-area">
+      <div class="demo-title">&#x1F50D; 下表模拟了 RatingDelegate 渲染出来的视觉效果</div>
+      <table class="demo-table" id="renderDemo">
+        <tr><th>名称</th><th>评分</th><th>完成度</th><th>优先级</th></tr>
+        <tr><td>Qt 网络模块</td><td><span class="cell-stars">★★★★★</span></td><td><span class="cell-progress" style="width:80px;background:#10b981"></span> 87%</td><td><span class="cell-priority high">高</span></td></tr>
+        <tr><td>OpenGL 渲染器</td><td><span class="cell-stars">★★★★☆</span></td><td><span class="cell-progress" style="width:58px;background:#0ea5e9"></span> 63%</td><td><span class="cell-priority medium">中</span></td></tr>
+        <tr><td>插件系统</td><td><span class="cell-stars">★★★☆☆</span></td><td><span class="cell-progress" style="width:34px;background:#e94560"></span> 37%</td><td><span class="cell-priority low">低</span></td></tr>
+        <tr><td>UI 主题引擎</td><td><span class="cell-stars">★★★★★</span></td><td><span class="cell-progress" style="width:88px;background:#10b981"></span> 95%</td><td><span class="cell-priority high">高</span></td></tr>
+        <tr><td>日志系统</td><td><span class="cell-stars">★★★★☆</span></td><td><span class="cell-progress" style="width:68px;background:#0ea5e9"></span> 74%</td><td><span class="cell-priority medium">中</span></td></tr>
+      </table>
+      <div class="info-box tip">
+        <strong>&#x1F4A1; 这就是委托的魔力：</strong>同一张表，不同列有完全不同的视觉风格，但底层 Model 只存了原始数据（int/int/QString），所有"花活"都在 Delegate::paint() 里完成。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: 自定义编辑器 ===== -->
+<div class="tab-panel" id="tab-custom-editor">
+  <div class="card">
+    <h2>&#x270F;&#xFE0F; 自定义编辑器：让用户直接在表格里编辑</h2>
+    <p>委托不仅能"画"，还能"编辑"。双击单元格时，委托会创建一个临时编辑器控件，编辑完成后把值写回 Model。</p>
+
+    <h3>编辑流程（4个虚函数配合）</h3>
+    <div class="arch-diagram">
+      <div class="arch-box"><div class="box-title">&#x1F4E5; createEditor()</div><div class="box-desc">创建编辑器控件</div></div>
+      <div class="arch-arrow">&#x27A1;</div>
+      <div class="arch-box"><div class="box-title">&#x1F4E4; setEditorData()</div><div class="box-desc">填入当前数据</div></div>
+      <div class="arch-arrow">&#x27A1;</div>
+      <div class="arch-box"><div class="box-title">&#x270F;&#xFE0F; 用户编辑</div><div class="box-desc">交互操作</div></div>
+      <div class="arch-arrow">&#x27A1;</div>
+      <div class="arch-box"><div class="box-title">&#x1F4E5; setModelData()</div><div class="box-desc">结果写回Model</div></div>
+    </div>
+
+    <h3>完整示例：星级评分双击编辑</h3>
+    <div class="code-block">
+      <span class="label">stareditor.h / .cpp</span>
+      <code><span class="kw">class</span> <span class="cls">StarDelegate</span> : <span class="kw">public</span> QStyledItemDelegate
+{
+<span class="kw">public</span>:
+    QWidget* <span class="fn">createEditor</span>(QWidget *parent,
+         <span class="kw">const</span> QStyleOptionViewItem &amp;opt,
+         <span class="kw">const</span> QModelIndex &amp;idx) <span class="kw">const override</span>
+    {
+        <span class="kw">auto</span> *combo = <span class="kw">new</span> QComboBox(parent);
+        combo-&gt;<span class="fn">addItems</span>({<span class="str">"★☆☆☆☆"</span>,<span class="str">"★★☆☆☆"</span>,<span class="str">"★★★☆☆"</span>,
+                        <span class="str">"★★★★☆"</span>,<span class="str">"★★★★★"</span>});
+        combo-&gt;<span class="fn">setCurrentIndex</span>(<span class="num">2</span>);  <span class="cmt">// 默认3星</span>
+        <span class="kw">return</span> combo;
+    }
+
+    <span class="kw">void</span> <span class="fn">setEditorData</span>(QWidget *editor,
+                        <span class="kw">const</span> QModelIndex &amp;idx) <span class="kw">const override</span>
+    {
+        <span class="kw">int</span> stars = idx.<span class="fn">data</span>(Qt::EditRole).<span class="fn">toInt</span>();
+        <span class="kw">auto</span> *combo = <span class="kw">qobject_cast</span>&lt;QComboBox*&gt;(editor);
+        <span class="kw">if</span> (combo) combo-&gt;<span class="fn">setCurrentIndex</span>(stars - <span class="num">1</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">setModelData</span>(QWidget *editor,
+                       QAbstractItemModel *model,
+                       <span class="kw">const</span> QModelIndex &amp;idx) <span class="kw">const override</span>
+    {
+        <span class="kw">auto</span> *combo = <span class="kw">qobject_cast</span>&lt;QComboBox*&gt;(editor);
+        <span class="kw">if</span> (combo)
+            model-&gt;<span class="fn">setData</span>(idx, combo-&gt;<span class="fn">currentIndex</span>() + <span class="num">1</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">updateEditorGeometry</span>(QWidget *editor,
+            <span class="kw">const</span> QStyleOptionViewItem &amp;opt,
+            <span class="kw">const</span> QModelIndex &amp;idx) <span class="kw">const override</span>
+    {
+        editor-&gt;<span class="fn">setGeometry</span>(opt.rect);  <span class="cmt">// 占满整个cell</span>
+    }
+};</code>
+    </div>
+
+    <h3>&#x1F534; 关键信号：closeEditor()</h3>
+    <p>编辑器提交时，View 会发出 <strong>closeEditor(QWidget*, QAbstractItemDelegate::EndEditHint)</strong> 信号。Delegate 也可以通过 <strong>commitData</strong> 和 <strong>closeEditor</strong> 信号主动控制提交时机：</p>
+    <div class="code-block">
+      <code><span class="cmt">// 在委托内部 emit 信号，通知 View 提交并关闭编辑器</span>
+<span class="kw">emit</span> <span class="fn">commitData</span>(editor);   <span class="cmt">// 把编辑器值写入 Model</span>
+<span class="kw">emit</span> <span class="fn">closeEditor</span>(editor, QAbstractItemDelegate::SubmitModelCache);</code>
+    </div>
+    <p><strong>EndEditHint 枚举（决定编辑完后的焦点行为）：</strong></p>
+    <ul>
+      <li><strong>NoHint</strong> — 无特殊行为</li>
+      <li><strong>EditNextItem</strong> — 自动跳到下一行编辑</li>
+      <li><strong>EditPreviousItem</strong> — 跳到上一行</li>
+      <li><strong>SubmitModelCache</strong> — 提交缓存（默认）</li>
+      <li><strong>RevertModelCache</strong> — 放弃缓存</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ===== TAB: 常用API速查 ===== -->
+<div class="tab-panel" id="tab-api">
+  <div class="card">
+    <h2>&#x1F4CB; QStyledItemDelegate 常用 API 速查表</h2>
+
+    <h3>核心虚函数（继承重写）</h3>
+    <table class="api-table">
+      <tr><th>方法</th><th>返回</th><th>说明</th></tr>
+      <tr><td class="fn-name">paint(painter, option, index)</td><td>void</td><td>自定义绘制单元格。务必先调基类绘制背景</td></tr>
+      <tr><td class="fn-name">sizeHint(option, index)</td><td>QSize</td><td>返回单元格推荐尺寸</td></tr>
+      <tr><td class="fn-name">createEditor(parent, option, index)</td><td>QWidget*</td><td>创建编辑控件，返回 nullptr 禁止编辑</td></tr>
+      <tr><td class="fn-name">setEditorData(editor, index)</td><td>void</td><td>把 Model 数据填入编辑器</td></tr>
+      <tr><td class="fn-name">setModelData(editor, model, index)</td><td>void</td><td>把编辑结果写回 Model</td></tr>
+      <tr><td class="fn-name">updateEditorGeometry(editor, option, index)</td><td>void</td><td>调整编辑器位置/大小</td></tr>
+      <tr><td class="fn-name">displayText(value, locale)</td><td>QString <span class="tag qt5">Qt6</span></td><td>自定义文本格式化（如数字千分位）</td></tr>
+      <tr><td class="fn-name">editorEvent(event, model, option, index)</td><td>bool</td><td>拦截/处理事件（如点击响应）</td></tr>
+      <tr><td class="fn-name">destroyEditor(editor, index)</td><td>void</td><td>编辑器销毁前的清理钩子</td></tr>
+    </table>
+
+    <h3 style="margin-top:24px;">信号</h3>
+    <table class="api-table">
+      <tr><th>信号</th><th>说明</th></tr>
+      <tr><td class="fn-name">commitData(QWidget *editor)</td><td>通知 View 把编辑器值写入 Model</td></tr>
+      <tr><td class="fn-name">closeEditor(QWidget *editor, hint)</td><td>通知 View 关闭编辑器，hint 控制焦点行为</td></tr>
+      <tr><td class="fn-name">sizeHintChanged(QModelIndex)</td><td>通知 View 某单元格的 sizeHint 已变化</td></tr>
+    </table>
+
+    <h3 style="margin-top:24px;">View 设置委托的 API</h3>
+    <table class="api-table">
+      <tr><th>View 方法</th><th>说明</th></tr>
+      <tr><td class="fn-name">setItemDelegate(delegate)</td><td>为整个 View 设置委托</td></tr>
+      <tr><td class="fn-name">setItemDelegateForColumn(col, delegate)</td><td>为指定列设置委托</td></tr>
+      <tr><td class="fn-name">setItemDelegateForRow(row, delegate)</td><td>为指定行设置委托</td></tr>
+      <tr><td class="fn-name">itemDelegate()</td><td>获取当前委托</td></tr>
+      <tr><td class="fn-name">itemDelegateForColumn(col)</td><td>获取指定列的委托</td></tr>
+      <tr><td class="fn-name">itemDelegateForRow(row)</td><td>获取指定行的委托</td></tr>
+      <tr><td class="fn-name">openPersistentEditor(index)</td><td>为指定单元格打开持久编辑器（始终可见）</td></tr>
+      <tr><td class="fn-name">closePersistentEditor(index)</td><td>关闭持久编辑器</td></tr>
+    </table>
+
+    <div class="info-box tip">
+      <strong>&#x1F4A1; openPersistentEditor：</strong>让编辑器始终显示在单元格中（不像双击才弹出）。常用于始终可编辑的列（如勾选框列），配合 QCheckBox 等控件非常方便。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>QStyleOptionViewItem 关键字段</h3>
+    <p>paint() 中的 option 参数携带了丰富的绘制上下文信息：</p>
+    <table class="api-table">
+      <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+      <tr><td class="fn-name">rect</td><td>QRect</td><td>单元格在 View 中的矩形区域</td></tr>
+      <tr><td class="fn-name">state</td><td>QStyle::State</td><td>状态标志（选中/悬停/焦点/编辑等）</td></tr>
+      <tr><td class="fn-name">text</td><td>QString</td><td>DisplayRole 文本（已格式化）</td></tr>
+      <tr><td class="fn-name">icon</td><td>QIcon</td><td>DecorationRole 图标</td></tr>
+      <tr><td class="fn-name">font</td><td>QFont</td><td>当前字体</td></tr>
+      <tr><td class="fn-name">widget</td><td>QWidget*</td><td>所属 View 的指针</td></tr>
+      <tr><td class="fn-name">index</td><td>QModelIndex</td><td>当前单元格的 Model 索引</td></tr>
+      <tr><td class="fn-name">showDecorationSelected</td><td>bool</td><td>选中时是否高亮图标</td></tr>
+    </table>
+
+    <h3 style="margin-top:24px;">常用 State 标志判断</h3>
+    <div class="code-block">
+      <code><span class="kw">if</span> (option.state &amp; QStyle::State_Selected)   <span class="cmt">// 被选中</span>
+<span class="kw">if</span> (option.state &amp; QStyle::State_MouseOver)  <span class="cmt">// 鼠标悬停</span>
+<span class="kw">if</span> (option.state &amp; QStyle::State_HasFocus)   <span class="cmt">// 有键盘焦点</span>
+<span class="kw">if</span> (option.state &amp; QStyle::State_Editing)    <span class="cmt">// 正在编辑中</span>
+<span class="kw">if</span> (option.state &amp; QStyle::State_Enabled)    <span class="cmt">// 可用（非禁用）</span></code>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: 避坑要点 ===== -->
+<div class="tab-panel" id="tab-pitfalls">
+  <div class="card">
+    <h2>&#x26A0;&#xFE0F; 7个常见陷阱与最佳实践</h2>
+
+    <div class="info-box danger">
+      <strong>&#x1F6AB; 陷阱1：paint() 里忘记调用基类</strong><br>
+      如果不调用 <code>QStyledItemDelegate::paint()</code>，选中高亮、焦点框、悬停效果将全部消失，用户体验极差。务必在自定义绘制前先调基类。
+    </div>
+
+    <div class="info-box warn">
+      <strong>&#x26A0;&#xFE0F; 陷阱2：createEditor 返回裸指针未设 parent</strong><br>
+      编辑器控件必须把 <code>parent</code> 参数传进去，否则编辑器由 View 管理生命周期时可能产生悬挂指针。正确做法：<code>new QSpinBox(parent)</code> 而非 <code>new QSpinBox</code>。
+    </div>
+
+    <div class="info-box warn">
+      <strong>&#x26A0;&#xFE0F; 陷阱3：sizeHint 太小导致内容被裁切</strong><br>
+      如果自定义绘制了超大元素（图标、进度条、多行文本），务必在 sizeHint() 中返回足够尺寸，否则内容会被 View 裁剪。
+    </div>
+
+    <div class="info-box danger">
+      <strong>&#x1F6AB; 陷阱4：在 setModelData() 中忘记检查 editor 类型</strong><br>
+      严格使用 <code>qobject_cast</code> 而不是 C 风格强转，防止在异常情况下崩溃。别忘了判空。
+    </div>
+
+    <div class="info-box warn">
+      <strong>&#x26A0;&#xFE0F; 陷阱5：委托对象被提前析构</strong><br>
+      确保委托的生命周期覆盖 View（通常作为 View 的子对象，或使用成员变量）。View 不拥有委托的所有权，如果委托被提前 delete，View 会崩溃。
+    </div>
+
+    <div class="info-box warn">
+      <strong>&#x26A0;&#xFE0F; 陷阱6：高频率更新导致性能问题</strong><br>
+      如果 Model 数据频繁变化（如实时数据），委托的 paint() 会被高频调用。应考虑：使用 <strong>QPainter 的裁剪</strong>跳过不可见区域、缓存复杂计算、降低不必要的重绘触发。
+    </div>
+
+    <div class="info-box tip">
+      <strong>&#x1F4A1; 陷阱7：paint() 中 save/restore 不匹配导致状态污染</strong><br>
+      始终用 <code>painter->save()</code> 和 <code>painter->restore()</code> 包裹自定义绘制代码，防止影响其他单元格的绘制状态。这是 QPainter 的黄金法则。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#x2705; 最佳实践清单</h3>
+    <ol>
+      <li><strong>继承 QStyledItemDelegate 而非 QItemDelegate</strong> — 获得完整的 QSS 样式支持和平台原生外观</li>
+      <li><strong>paint() 开头调基类 → 再自定义绘制</strong> — 保留选中/悬停/焦点等原生效果</li>
+      <li><strong>用 QStyleOptionViewItem::rect 确定绘制区域</strong> — 不要硬编码坐标，View 可能会 resize</li>
+      <li><strong>重写 displayText() 而非在 paint() 里做文本格式化</strong> — 语义更清晰，Qt 6 专属</li>
+      <li><strong>为不同列使用不同委托</strong> — 通过 setItemDelegateForColumn()，各司其职</li>
+      <li><strong>用 openPersistentEditor 实现常驻编辑器</strong> — 如复选框列、下拉框列始终可交互</li>
+      <li><strong>复杂委托单元测试用 QTest</strong> — 直接调用 paint() 传入 QPixmap 验证像素级正确性</li>
+      <li><strong>委托中不要缓存 Model 数据</strong> — 一切从 index.data() 获取，Model 才是唯一真相来源</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>&#x1F504; 与之前学过的内容联动</h3>
+    <p>QStyledItemDelegate 和以下已学知识深度配合：</p>
+    <table class="api-table">
+      <tr><th>已学主题</th><th>联动场景</th></tr>
+      <tr><td>QSortFilterProxyModel</td><td>代理排序后，委托渲染自动跟随——因为委托只认 QModelIndex</td></tr>
+      <tr><td>QVariant</td><td>Model 返回 QVariant 数据，委托通过 data(role) 取值后按需转换为具体类型</td></tr>
+      <tr><td>QPainter</td><td>paint() 参数中的 QPainter* 即之前学过的 2D 绘制引擎，所有绘图 API 通用</td></tr>
+      <tr><td>QProperty 绑定系统</td><td>委托内部可绑定 QProperty 驱动渲染参数（如主题色切换）</td></tr>
+      <tr><td>QRegularExpression</td><td>在 displayText() / paint() 中对文本做正则校验、格式化展示</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="footer">
+  <p>Qt 每日学习 · Day 24 · QStyledItemDelegate · 2026-06-09</p>
+  <p style="margin-top:6px;font-size:12px;">Model 管数据，View 管容器，Delegate 管"怎么画"——三位一体，天下无敌。</p>
+</div>
+
+</div>
+
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

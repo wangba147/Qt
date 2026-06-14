@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qt学习 — QPropertyAnimation / QAbstractAnimation</title>
+<style>
+body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #1a1a1a; }
+.tab-btn { font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 0.5px solid #d3d1c7; background: transparent; cursor: pointer; font-family: inherit; }
+.tab-btn.active { background: #f1efe8; font-weight: 500; }
+code { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 12px; background: #f1efe8; padding: 1px 4px; border-radius: 3px; }
+pre { font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace; font-size: 12px; background: #f1efe8; padding: 12px; border-radius: 8px; overflow-x: auto; line-height: 1.6; white-space: pre; margin: 8px 0; }
+.api-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 0.5px solid #e8e8e8; font-size: 12px; }
+.api-row:last-child { border-bottom: none; }
+.api-name { font-family: 'SF Mono', Consolas, monospace; color: #185FA5; min-width: 200px; flex-shrink: 0; }
+.api-desc { color: #5f5e5a; }
+.tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+.tag-core { background: #E6F1FB; color: #185FA5; }
+.tag-gui { background: #EAF3DE; color: #3B6D11; }
+.tag-widget { background: #FAEEDA; color: #854F0B; }
+</style>
+</head>
+<body>
+
+<div style="max-width: 720px;">
+<div style="margin-bottom: 16px;">
+  <h1 style="font-size: 15px; font-weight: 500; margin: 0 0 4px 0;">QPropertyAnimation / QAbstractAnimation</h1>
+  <p style="font-size: 13px; color: #5f5e5a; margin: 0;">Qt 属性动画框架 — 让任何 QObject 属性在时间轴上平滑过渡</p>
+</div>
+
+<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;" id="tabBar">
+  <button onclick="switchTab(0)" class="tab-btn active">概念与架构</button>
+  <button onclick="switchTab(1)" class="tab-btn">基础用法</button>
+  <button onclick="switchTab(2)" class="tab-btn">缓动曲线</button>
+  <button onclick="switchTab(3)" class="tab-btn">动画组</button>
+  <button onclick="switchTab(4)" class="tab-btn">常用API</button>
+  <button onclick="switchTab(5)" class="tab-btn">实战与避坑</button>
+</div>
+
+<div id="tabContent" style="min-height: 360px;"></div>
+</div>
+
+<script>
+const tabs = [];
+
+tabs[0] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 12px 0;">类继承体系</h2>
+    <div style="background: #f1efe8; border-radius: 8px; padding: 16px; margin-bottom: 16px; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; line-height: 2;">
+      <span style="color: #5f5e5a;">QObject</span><br>
+      &nbsp;&nbsp;└── <span style="color: #185FA5; font-weight: 500;">QAbstractAnimation</span> &nbsp;<span class="tag tag-core">抽象基类</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color: #3B6D11; font-weight: 500;">QPropertyAnimation</span> &nbsp;<span class="tag tag-gui">最常用</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color: #3B6D11;">QVariantAnimation</span> &nbsp;<span class="tag tag-gui">通用值动画</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color: #854F0B;">QAnimationGroup</span> &nbsp;<span class="tag tag-widget">抽象组</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── <span style="color: #854F0B;">QSequentialAnimationGroup</span> &nbsp;<span class="tag tag-widget">串行</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── <span style="color: #854F0B;">QParallelAnimationGroup</span> &nbsp;<span class="tag tag-widget">并行</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span style="color: #854F0B;">QPauseAnimation</span> &nbsp;<span class="tag tag-widget">延时占位</span>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">核心思想</h2>
+    <p style="color: #5f5e5a; margin: 0 0 12px 0;">
+      Qt 动画框架的核心是 <strong>属性驱动</strong>：你指定一个 QObject 的某个属性（如 <code>pos</code>、<code>geometry</code>、<code>windowOpacity</code>），
+      给定起止值和时长，框架自动在每一帧插值并写入属性。因为走的是 Qt <strong>属性系统</strong>（Q_PROPERTY），
+      所以只要属性有 WRITE 函数和 NOTIFY 信号，任何自定义属性都能动画化。
+    </p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+      <div style="background: #f1efe8; border-radius: 8px; padding: 12px;">
+        <p style="font-weight: 500; font-size: 13px; margin: 0 0 4px 0;">QPropertyAnimation</p>
+        <p style="font-size: 12px; color: #5f5e5a; margin: 0;">对一个 QObject 属性做插值动画。绝大多数场景用这个就够了。</p>
+      </div>
+      <div style="background: #f1efe8; border-radius: 8px; padding: 12px;">
+        <p style="font-weight: 500; font-size: 13px; margin: 0 0 4px 0;">QVariantAnimation</p>
+        <p style="font-size: 12px; color: #5f5e5a; margin: 0;">不绑定 QObject，对任意 QVariant 值做插值。需重写 updateCurrentValue()。</p>
+      </div>
+      <div style="background: #f1efe8; border-radius: 8px; padding: 12px;">
+        <p style="font-weight: 500; font-size: 13px; margin: 0 0 4px 0;">QSequentialAnimationGroup</p>
+        <p style="font-size: 12px; color: #5f5e5a; margin: 0;">子动画按顺序依次执行。可插入 QPauseAnimation 做延时。</p>
+      </div>
+      <div style="background: #f1efe8; border-radius: 8px; padding: 12px;">
+        <p style="font-weight: 500; font-size: 13px; margin: 0 0 4px 0;">QParallelAnimationGroup</p>
+        <p style="font-size: 12px; color: #5f5e5a; margin: 0;">子动画同时执行。总时长 = 最长的子动画时长。</p>
+      </div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">动画状态机</h2>
+    <div style="background: #f1efe8; border-radius: 8px; padding: 12px; font-size: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span style="background: #fff; padding: 4px 10px; border-radius: 6px; border: 0.5px solid #d3d1c7; font-weight: 500;">Stopped</span>
+        <span style="color: #5f5e5a;">─start()→</span>
+        <span style="background: #E1F5EE; padding: 4px 10px; border-radius: 6px; border: 0.5px solid #9FE1CB; font-weight: 500; color: #0F6E56;">Running</span>
+        <span style="color: #5f5e5a;">─pause()→</span>
+        <span style="background: #FAEEDA; padding: 4px 10px; border-radius: 6px; border: 0.5px solid #FAC775; font-weight: 500; color: #854F0B;">Paused</span>
+        <span style="color: #5f5e5a;">─resume()→</span>
+        <span style="background: #E1F5EE; padding: 4px 10px; border-radius: 6px; border: 0.5px solid #9FE1CB; font-weight: 500; color: #0F6E56;">Running</span>
+      </div>
+      <p style="color: #5f5e5a; margin: 8px 0 0 0;">Running/Paused 均可 → stop() 回到 Stopped。自然播放完毕也回到 Stopped 并发射 finished()。</p>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">动画 vs 定时器 vs 状态机</h2>
+    <table style="width: 100%; font-size: 12px; border-collapse: collapse; margin-bottom: 8px;">
+      <tr style="border-bottom: 0.5px solid #d3d1c7;">
+        <th style="text-align: left; padding: 6px 8px; font-weight: 500; color: #5f5e5a;">方案</th>
+        <th style="text-align: left; padding: 6px 8px; font-weight: 500; color: #5f5e5a;">适用场景</th>
+        <th style="text-align: left; padding: 6px 8px; font-weight: 500; color: #5f5e5a;">优势</th>
+        <th style="text-align: left; padding: 6px 8px; font-weight: 500; color: #5f5e5a;">劣势</th>
+      </tr>
+      <tr style="border-bottom: 0.5px solid #e8e8e8;">
+        <td style="padding: 6px 8px;"><code>QPropertyAnimation</code></td>
+        <td style="padding: 6px 8px;">属性平滑过渡</td>
+        <td style="padding: 6px 8px;">声明式、缓动曲线、自动插值</td>
+        <td style="padding: 6px 8px;">仅限 Q_PROPERTY</td>
+      </tr>
+      <tr style="border-bottom: 0.5px solid #e8e8e8;">
+        <td style="padding: 6px 8px;"><code>QTimer</code></td>
+        <td style="padding: 6px 8px;">自定义帧逻辑</td>
+        <td style="padding: 6px 8px;">完全自由</td>
+        <td style="padding: 6px 8px;">手动计算插值、无缓动</td>
+      </tr>
+      <tr>
+        <td style="padding: 6px 8px;"><code>QStateMachine</code></td>
+        <td style="padding: 6px 8px;">状态间切换</td>
+        <td style="padding: 6px 8px;">状态机完整建模</td>
+        <td style="padding: 6px 8px;">复杂、不直接做动画</td>
+      </tr>
+    </table>
+    <p style="font-size: 12px; color: #5f5e5a; margin: 0;">三者可组合：QStateMachine 的状态进入/退出可触发 QPropertyAnimation。</p>
+  </div>`;
+};
+
+tabs[1] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">三步创建动画</h2>
+    <pre>// 1. 创建动画，指定目标和属性
+auto *anim = new QPropertyAnimation(widget, "geometry");
+
+// 2. 设置起止值和时长
+anim-&gt;setStartValue(QRect(0, 0, 100, 30));
+anim-&gt;setEndValue(QRect(250, 250, 200, 60));
+anim-&gt;setDuration(1000); // 毫秒
+
+// 3. 启动
+anim-&gt;start(QAbstractAnimation::DeleteWhenStopped);</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">交互演示：控件的属性动画</h2>
+    <div style="background: #f1efe8; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+      <div style="position: relative; height: 120px; margin-bottom: 12px;">
+        <div id="demoBox" style="position: absolute; left: 8px; top: 10px; width: 60px; height: 36px; background: #E6F1FB; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #185FA5; font-weight: 500; transition: none;">
+          Widget
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <button onclick="runDemoAnim('pos')" style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 0.5px solid #b4b2a9; background: transparent; cursor: pointer;">pos 动画</button>
+        <button onclick="runDemoAnim('size')" style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 0.5px solid #b4b2a9; background: transparent; cursor: pointer;">size 动画</button>
+        <button onclick="runDemoAnim('opacity')" style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 0.5px solid #b4b2a9; background: transparent; cursor: pointer;">opacity 动画</button>
+        <button onclick="resetDemoAnim()" style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 0.5px solid #d3d1c7; background: transparent; cursor: pointer;">重置</button>
+      </div>
+      <div style="display: flex; gap: 12px; font-size: 12px; color: #5f5e5a;">
+        <label>时长: <input type="range" id="demoDuration" min="200" max="3000" value="1000" style="width: 80px;" oninput="document.getElementById('durLabel').textContent=this.value+'ms'"> <span id="durLabel">1000ms</span></label>
+        <label>缓动: <select id="demoEasing" style="font-size: 12px; border-radius: 4px; border: 0.5px solid #d3d1c7; padding: 2px 4px;">
+          <option value="linear">Linear</option>
+          <option value="easeInOut" selected>EaseInOut</option>
+          <option value="easeIn">EaseIn</option>
+          <option value="easeOut">EaseOut</option>
+          <option value="outBounce">OutBounce</option>
+          <option value="inOutElastic">InOutElastic</option>
+          <option value="inOutBack">InOutBack</option>
+        </select></label>
+      </div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">可动画化的内置属性速查</h2>
+    <div style="font-size: 12px;">
+      <div class="api-row"><span class="api-name">QWidget::geometry</span><span class="api-desc">位置 + 尺寸同时变化</span></div>
+      <div class="api-row"><span class="api-name">QWidget::pos</span><span class="api-desc">仅移动位置</span></div>
+      <div class="api-row"><span class="api-name">QWidget::size</span><span class="api-desc">仅改变尺寸</span></div>
+      <div class="api-row"><span class="api-name">QWidget::windowOpacity</span><span class="api-desc">淡入淡出 (0.0~1.0)</span></div>
+      <div class="api-row"><span class="api-name">QWidget::maximumWidth / Height</span><span class="api-desc">折叠/展开动画</span></div>
+      <div class="api-row"><span class="api-name">QGraphicsItem::opacity (via wrapper)</span><span class="api-desc">Graphics View 淡入淡出</span></div>
+      <div class="api-row"><span class="api-name">自定义 Q_PROPERTY</span><span class="api-desc">任何有 WRITE + NOTIFY 的属性</span></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">自定义属性动画示例</h2>
+    <pre>// 头文件
+class Gauge : public QWidget {
+    Q_OBJECT
+    Q_PROPERTY(qreal value READ value WRITE setValue NOTIFY valueChanged)
+public:
+    qreal value() const { return m_value; }
+    void setValue(qreal v) {
+        if (qFuzzyCompare(m_value, v)) return;
+        m_value = v;
+        update();        // 触发重绘
+        emit valueChanged(v);
+    }
+signals:
+    void valueChanged(qreal);
+private:
+    qreal m_value = 0;
+};
+
+// 使用
+auto *anim = new QPropertyAnimation(gauge, "value");
+anim-&gt;setStartValue(0.0);
+anim-&gt;setEndValue(100.0);
+anim-&gt;setDuration(800);
+anim-&gt;start();</pre>
+  </div>`;
+};
+
+tabs[2] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QEasingCurve — 缓动曲线</h2>
+    <p style="color: #5f5e5a; margin: 0 0 12px 0;">缓动曲线定义了动画的"速度节奏"。横轴是时间进度 [0,1]，纵轴是属性值进度 [0,1]。直线 = 匀速，曲线 = 变速。</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+      <div style="background: #f1efe8; border-radius: 8px; padding: 12px;">
+        <canvas id="easingCanvas" width="280" height="180" style="width: 100%; border-radius: 4px;"></canvas>
+      </div>
+      <div>
+        <label style="font-size: 12px; color: #5f5e5a; display: block; margin-bottom: 6px;">选择曲线类型:</label>
+        <select id="easingSelect" onchange="drawEasing()" style="width: 100%; font-size: 12px; border-radius: 6px; border: 0.5px solid #d3d1c7; padding: 6px 8px; margin-bottom: 8px;">
+          <optgroup label="基础">
+            <option value="linear">Linear</option>
+            <option value="easeIn">EaseIn</option>
+            <option value="easeOut">EaseOut</option>
+            <option value="easeInOut" selected>EaseInOut</option>
+          </optgroup>
+          <optgroup label="弹性">
+            <option value="inElastic">InElastic</option>
+            <option value="outElastic">OutElastic</option>
+            <option value="inOutElastic">InOutElastic</option>
+          </optgroup>
+          <optgroup label="回弹">
+            <option value="inBack">InBack</option>
+            <option value="outBack">OutBack</option>
+            <option value="inOutBack">InOutBack</option>
+          </optgroup>
+          <optgroup label="弹跳">
+            <option value="inBounce">InBounce</option>
+            <option value="outBounce">OutBounce</option>
+            <option value="inOutBounce">InOutBounce</option>
+          </optgroup>
+          <optgroup label="正弦">
+            <option value="inSine">InSine</option>
+            <option value="outSine">OutSine</option>
+            <option value="inOutSine">InOutSine</option>
+          </optgroup>
+          <optgroup label="三次">
+            <option value="inCubic">InCubic</option>
+            <option value="outCubic">OutCubic</option>
+            <option value="inOutCubic">InOutCubic</option>
+          </optgroup>
+          <optgroup label="圆">
+            <option value="inCirc">InCirc</option>
+            <option value="outCirc">OutCirc</option>
+            <option value="inOutCirc">InOutCirc</option>
+          </optgroup>
+        </select>
+        <label style="font-size: 12px; color: #5f5e5a; display: block; margin-bottom: 4px;">振幅 (amplitude): <span id="ampLabel">1.0</span></label>
+        <input type="range" id="easingAmp" min="0.1" max="3" step="0.1" value="1.0" oninput="document.getElementById('ampLabel').textContent=parseFloat(this.value).toFixed(1); drawEasing();" style="width: 100%;">
+        <label style="font-size: 12px; color: #5f5e5a; display: block; margin-bottom: 4px; margin-top: 6px;">过冲 (overshoot): <span id="overLabel">1.7</span></label>
+        <input type="range" id="easingOver" min="0" max="5" step="0.1" value="1.7" oninput="document.getElementById('overLabel').textContent=parseFloat(this.value).toFixed(1); drawEasing();" style="width: 100%;">
+        <label style="font-size: 12px; color: #5f5e5a; display: block; margin-bottom: 4px; margin-top: 6px;">周期 (period): <span id="periodLabel">0.3</span></label>
+        <input type="range" id="easingPeriod" min="0.05" max="1" step="0.05" value="0.3" oninput="document.getElementById('periodLabel').textContent=parseFloat(this.value).toFixed(2); drawEasing();" style="width: 100%;">
+        <button onclick="playEasingDemo()" style="margin-top: 8px; font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 0.5px solid #b4b2a9; background: transparent; cursor: pointer; width: 100%;">播放动画预览</button>
+      </div>
+    </div>
+
+    <div id="easingDemoBox" style="background: #f1efe8; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+      <div id="easingBall" style="width: 24px; height: 24px; border-radius: 50%; background: #E6F1FB; border: 1px solid #378ADD; margin-left: 8px;"></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">Qt 代码对应</h2>
+    <pre>auto *curve = new QEasingCurve(QEasingCurve::OutBounce);
+curve-&gt;setAmplitude(1.0);
+curve-&gt;setOvershoot(1.7);
+curve-&gt;setPeriod(0.3);
+anim-&gt;setEasingCurve(*curve);
+
+// 也可用自定义贝塞尔曲线
+QEasingCurve custom;
+custom.setCustomType([](qreal t) -&gt; qreal {
+    return t * t * (3 - 2 * t); // smoothstep
+});
+anim-&gt;setEasingCurve(custom);</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">Type 枚举速查 (42种)</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; font-size: 12px;">
+      <div><code>Linear</code> — 匀速</div>
+      <div><code>InQuad / OutQuad / InOutQuad</code></div>
+      <div><code>InCubic / OutCubic / InOutCubic</code></div>
+      <div><code>InQuart / OutQuart / InOutQuart</code></div>
+      <div><code>InQuint / OutQuint / InOutQuint</code></div>
+      <div><code>InSine / OutSine / InOutSine</code></div>
+      <div><code>InExpo / OutExpo / InOutExpo</code></div>
+      <div><code>InCirc / OutCirc / InOutCirc</code></div>
+      <div><code>InElastic / OutElastic / InOutElastic</code></div>
+      <div><code>InBack / OutBack / InOutBack</code></div>
+      <div><code>InBounce / OutBounce / InOutBounce</code></div>
+      <div><code>BezierSpline</code> — 自定义贝塞尔</div>
+      <div><code>TCBSpline</code> — TCB 样条</div>
+      <div><code>Custom</code> — 自定义函数</div>
+    </div>
+  </div>`;
+};
+
+tabs[3] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QSequentialAnimationGroup — 串行动画组</h2>
+    <p style="color: #5f5e5a; margin: 0 0 8px 0;">子动画依次执行。总时长 = 所有子动画时长之和。用 QPauseAnimation 插入等待间隔。</p>
+    <pre>auto *group = new QSequentialAnimationGroup;
+
+// 第一步：移动
+auto *moveAnim = new QPropertyAnimation(widget, "pos");
+moveAnim-&gt;setStartValue(QPoint(0, 0));
+moveAnim-&gt;setEndValue(QPoint(200, 0));
+moveAnim-&gt;setDuration(500);
+group-&gt;addAnimation(moveAnim);
+
+// 等待 300ms
+group-&gt;addPause(300);
+
+// 第二步：放大
+auto *scaleAnim = new QPropertyAnimation(widget, "geometry");
+scaleAnim-&gt;setStartValue(QRect(200, 0, 60, 40));
+scaleAnim-&gt;setEndValue(QRect(200, 0, 180, 120));
+scaleAnim-&gt;setDuration(400);
+group-&gt;addAnimation(scaleAnim);
+
+group-&gt;start();</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">QParallelAnimationGroup — 并行动画组</h2>
+    <p style="color: #5f5e5a; margin: 0 0 8px 0;">子动画同时执行。总时长 = 最长子动画的时长。</p>
+    <pre>auto *group = new QParallelAnimationGroup;
+
+// 同时：移动 + 透明度渐变
+auto *move = new QPropertyAnimation(widget, "pos");
+move-&gt;setStartValue(QPoint(0, 100));
+move-&gt;setEndValue(QPoint(300, 100));
+move-&gt;setDuration(1000);
+group-&gt;addAnimation(move);
+
+auto *fade = new QPropertyAnimation(widget, "windowOpacity");
+fade-&gt;setStartValue(0.0);
+fade-&gt;setEndValue(1.0);
+fade-&gt;setDuration(800);
+group-&gt;addAnimation(fade);
+
+group-&gt;start();</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">交互演示：串行 vs 并行</h2>
+    <div style="background: #f1efe8; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+      <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+        <div style="flex: 1;">
+          <p style="font-size: 12px; font-weight: 500; margin: 0 0 4px 0; color: #185FA5;">串行 (Sequential)</p>
+          <div style="position: relative; height: 30px; background: #fff; border-radius: 4px;">
+            <div id="seqA" style="position: absolute; left: 4px; top: 5px; width: 20px; height: 20px; border-radius: 4px; background: #E6F1FB; border: 1px solid #378ADD;"></div>
+          </div>
+        </div>
+        <div style="flex: 1;">
+          <p style="font-size: 12px; font-weight: 500; margin: 0 0 4px 0; color: #3B6D11;">并行 (Parallel)</p>
+          <div style="position: relative; height: 30px; background: #fff; border-radius: 4px;">
+            <div id="parA" style="position: absolute; left: 4px; top: 5px; width: 20px; height: 20px; border-radius: 4px; background: #EAF3DE; border: 1px solid #97C459;"></div>
+            <div id="parB" style="position: absolute; left: 4px; top: 5px; width: 20px; height: 20px; border-radius: 4px; background: #C0DD97; border: 1px solid #639922;"></div>
+          </div>
+        </div>
+      </div>
+      <button onclick="runGroupDemo()" style="font-size: 12px; padding: 4px 16px; border-radius: 6px; border: 0.5px solid #b4b2a9; background: transparent; cursor: pointer;">播放对比</button>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">嵌套组合</h2>
+    <p style="color: #5f5e5a; margin: 0 0 8px 0;">动画组可以嵌套：串行组内包含并行组，或反过来。这是构建复杂动画序列的关键。</p>
+    <pre>// 登场动画：先淡入，再同时位移+放大
+auto *seq = new QSequentialAnimationGroup;
+
+// 第1步：淡入
+auto *fadeIn = new QPropertyAnimation(w, "windowOpacity");
+fadeIn-&gt;setStartValue(0.0); fadeIn-&gt;setEndValue(1.0);
+fadeIn-&gt;setDuration(300);
+seq-&gt;addAnimation(fadeIn);
+
+// 第2步：位移+放大并行
+auto *par = new QParallelAnimationGroup;
+auto *move = new QPropertyAnimation(w, "pos");
+move-&gt;setEndValue(QPoint(100,100)); move-&gt;setDuration(500);
+par-&gt;addAnimation(move);
+auto *grow = new QPropertyAnimation(w, "size");
+grow-&gt;setEndValue(QSize(200,200)); grow-&gt;setDuration(500);
+par-&gt;addAnimation(grow);
+seq-&gt;addAnimation(par);
+
+seq-&gt;start();</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">时间线控制</h2>
+    <div style="font-size: 12px;">
+      <div class="api-row"><span class="api-name">setCurrentTime(int)</span><span class="api-desc">跳到指定时间点（可做进度条拖拽）</span></div>
+      <div class="api-row"><span class="api-name">duration()</span><span class="api-desc">总时长。串行=子项之和，并行=子项最大值</span></div>
+      <div class="api-row"><span class="api-name">currentAnimation()</span><span class="api-desc">串行组中当前正在播放的子动画</span></div>
+    </div>
+  </div>`;
+};
+
+tabs[4] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QAbstractAnimation 核心方法</h2>
+    <div style="font-size: 12px; margin-bottom: 16px;">
+      <div class="api-row"><span class="api-name">start(DeletionPolicy)</span><span class="api-desc">启动动画。DeleteWhenStopped 自动回收</span></div>
+      <div class="api-row"><span class="api-name">pause()</span><span class="api-desc">暂停，可 resume() 恢复</span></div>
+      <div class="api-row"><span class="api-name">resume()</span><span class="api-desc">从暂停处继续</span></div>
+      <div class="api-row"><span class="api-name">stop()</span><span class="api-desc">停止并回到起始状态</span></div>
+      <div class="api-row"><span class="api-name">setCurrentTime(int)</span><span class="api-desc">跳转到指定时间位置</span></div>
+      <div class="api-row"><span class="api-name">state()</span><span class="api-desc">返回 Stopped / Running / Paused</span></div>
+      <div class="api-row"><span class="api-name">duration()</span><span class="api-desc">总时长(ms)。-1 表示无限循环</span></div>
+      <div class="api-row"><span class="api-name">loopCount() / setLoopCount(int)</span><span class="api-desc">循环次数。1=单次, -1=无限</span></div>
+      <div class="api-row"><span class="api-name">currentLoop()</span><span class="api-desc">当前第几轮循环 (0-based)</span></div>
+      <div class="api-row"><span class="api-name">direction()</span><span class="api-desc">Forward / Backward</span></div>
+      <div class="api-row"><span class="api-name">setDirection(Direction)</span><span class="api-desc">设为 Backward 可反向播放</span></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QAbstractAnimation 信号</h2>
+    <div style="font-size: 12px; margin-bottom: 16px;">
+      <div class="api-row"><span class="api-name">finished()</span><span class="api-desc">动画完全结束（含所有循环）</span></div>
+      <div class="api-row"><span class="api-name">stateChanged(New, Old)</span><span class="api-desc">状态切换时触发</span></div>
+      <div class="api-row"><span class="api-name">currentLoopChanged(int)</span><span class="api-desc">新一轮循环开始</span></div>
+      <div class="api-row"><span class="api-name">directionChanged(Direction)</span><span class="api-desc">方向改变</span></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QPropertyAnimation 专属</h2>
+    <div style="font-size: 12px; margin-bottom: 16px;">
+      <div class="api-row"><span class="api-name">setTargetObject(QObject*)</span><span class="api-desc">设置动画目标对象</span></div>
+      <div class="api-row"><span class="api-name">setPropertyName(const char*)</span><span class="api-desc">设置属性名（如 "pos", "geometry"）</span></div>
+      <div class="api-row"><span class="api-name">setStartValue(const QVariant&)</span><span class="api-desc">起始值</span></div>
+      <div class="api-row"><span class="api-name">setEndValue(const QVariant&)</span><span class="api-desc">结束值</span></div>
+      <div class="api-row"><span class="api-name">setKeyValueAt(qreal, QVariant)</span><span class="api-desc">关键帧插值（0.0~1.0 位置设定值）</span></div>
+      <div class="api-row"><span class="api-name">setEasingCurve(const QEasingCurve&)</span><span class="api-desc">缓动曲线</span></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QVariantAnimation 专属</h2>
+    <div style="font-size: 12px; margin-bottom: 16px;">
+      <div class="api-row"><span class="api-name">currentValue()</span><span class="api-desc">当前插值（QVariant）</span></div>
+      <div class="api-row"><span class="api-name">updateCurrentValue(const QVariant&)</span><span class="api-desc">虚函数，子类重写以处理插值更新</span></div>
+      <div class="api-row"><span class="api-name">interpolated(from, to, progress)</span><span class="api-desc">虚函数，自定义插值算法</span></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">QAnimationGroup</h2>
+    <div style="font-size: 12px; margin-bottom: 16px;">
+      <div class="api-row"><span class="api-name">addAnimation(QAbstractAnimation*)</span><span class="api-desc">追加子动画</span></div>
+      <div class="api-row"><span class="api-name">insertAnimation(int, QAbstractAnimation*)</span><span class="api-desc">在指定位置插入</span></div>
+      <div class="api-row"><span class="api-name">removeAnimation(QAbstractAnimation*)</span><span class="api-desc">移除子动画（不删除）</span></div>
+      <div class="api-row"><span class="api-name">animationCount()</span><span class="api-desc">子动画数量</span></div>
+      <div class="api-row"><span class="api-name">animationAt(int)</span><span class="api-desc">按索引取子动画</span></div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">DeletionPolicy 枚举</h2>
+    <div style="font-size: 12px;">
+      <div class="api-row"><span class="api-name">KeepWhenStopped</span><span class="api-desc">停止后保留对象（默认，需手动 delete）</span></div>
+      <div class="api-row"><span class="api-name">DeleteWhenStopped</span><span class="api-desc">停止后自动 delete（最常用，防泄漏）</span></div>
+    </div>
+  </div>`;
+};
+
+tabs[5] = function() {
+  return `
+  <div style="font-size: 13px; line-height: 1.7;">
+    <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0;">实战 1：滑入/滑出面板</h2>
+    <pre>QPropertyAnimation *createSlideAnim(QWidget *panel, bool show)
+{
+    auto *anim = new QPropertyAnimation(panel, "geometry");
+    anim-&gt;setDuration(300);
+    anim-&gt;setEasingCurve(QEasingCurve::OutCubic);
+
+    QRect hidden(panel-&gt;x(), panel-&gt;y(), 0, panel-&gt;height());
+    QRect visible(panel-&gt;x(), panel-&gt;y(), 300, panel-&gt;height());
+    anim-&gt;setStartValue(show ? hidden : visible);
+    anim-&gt;setEndValue(show ? visible : hidden);
+    return anim;
+}</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">实战 2：关键帧动画</h2>
+    <pre>auto *anim = new QPropertyAnimation(widget, "pos");
+anim-&gt;setDuration(1000);
+anim-&gt;setKeyValueAt(0.0, QPoint(0, 0));     // 起点
+anim-&gt;setKeyValueAt(0.3, QPoint(100, 0));    // 30% 时到这里
+anim-&gt;setKeyValueAt(0.7, QPoint(100, 200));  // 70% 时到这里
+anim-&gt;setKeyValueAt(1.0, QPoint(0, 200));    // 终点
+anim-&gt;setEasingCurve(QEasingCurve::InOutSine);
+anim-&gt;start(QAbstractAnimation::DeleteWhenStopped);</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">实战 3：动画结束回调</h2>
+    <pre>// Qt 5 风格
+connect(anim, &amp;QPropertyAnimation::finished, this, [this]() {
+    qDebug() &lt;&lt; "动画完成，执行后续逻辑";
+});
+
+// Qt 6 风格 + QFuture（Qt 6.5+）
+// 注意：QPropertyAnimation 本身不提供 toFuture()
+// 但可以用 QPromise 配合信号实现</pre>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">实战 4：倒放动画</h2>
+    <pre>// 方式 1：设 direction
+anim-&gt;setDirection(QAbstractAnimation::Backward);
+anim-&gt;start();
+
+// 方式 2：交换起止值（更灵活）
+anim-&gt;setStartValue(endValue);
+anim-&gt;setEndValue(startValue);</pre>
+
+    <div style="background: #FCEBEB; border-radius: 8px; padding: 12px; margin: 16px 0 0 0;">
+      <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0; color: #A32D2D;">避坑要点</h2>
+      <div style="font-size: 12px; color: #791F1F; line-height: 1.8;">
+        <p style="margin: 0 0 6px 0;"><strong>1. 属性必须有 NOTIFY 信号</strong> — QPropertyAnimation 依赖属性系统。自定义属性必须在 Q_PROPERTY 中声明 NOTIFY 信号，否则动画不会生效且无编译错误提示。</p>
+        <p style="margin: 0 0 6px 0;"><strong>2. QWidget::pos 在某些布局下无效</strong> — 如果控件在 Layout 中，布局管理器会覆盖 pos 设定。改用 geometry 或设最大/最小尺寸动画。</p>
+        <p style="margin: 0 0 6px 0;"><strong>3. DeleteWhenStopped + 重复使用 = 崩溃</strong> — 用此策略后动画对象在停止时被 delete，再次 start() 野指针。需重建或用 KeepWhenStopped + 手动管理。</p>
+        <p style="margin: 0 0 6px 0;"><strong>4. windowOpacity 仅顶级窗口有效</strong> — 子 Widget 的 opacity 属性在 Qt 6 中需用 QGraphicsOpacityEffect + QPropertyAnimation。</p>
+        <p style="margin: 0 0 6px 0;"><strong>5. 不要在 paintEvent 中启动动画</strong> — 会触发无限重绘循环。动画应在构造函数或事件处理中启动。</p>
+        <p style="margin: 0 0 6px 0;"><strong>6. 0ms 动画无意义</strong> — setDuration(0) 会瞬间跳到终点，但不触发中间帧。如需"立即设置"直接赋值即可。</p>
+        <p style="margin: 0 0 6px 0;"><strong>7. 动画组析构会 delete 子动画</strong> — QAnimationGroup 析构时自动 delete 所有子动画，不要再手动 delete 子项。</p>
+        <p style="margin: 0 0 6px 0;"><strong>8. QEasingCurve::Custom 线程安全</strong> — setCustomType 接受的是函数指针，确保该函数是纯函数（无副作用、无状态）。</p>
+      </div>
+    </div>
+
+    <div style="background: #E1F5EE; border-radius: 8px; padding: 12px; margin: 16px 0 0 0;">
+      <h2 style="font-size: 14px; font-weight: 500; margin: 0 0 8px 0; color: #0F6E56;">最佳实践</h2>
+      <div style="font-size: 12px; color: #085041; line-height: 1.8;">
+        <p style="margin: 0 0 4px 0;">1. 始终使用 <code>DeleteWhenStopped</code> 除非需要复用动画对象</p>
+        <p style="margin: 0 0 4px 0;">2. 推荐时长：UI 过渡 150~400ms，强调效果 600~1000ms</p>
+        <p style="margin: 0 0 4px 0;">3. 常用缓动组合：入场 OutCubic，退场 InCubic，弹跳反馈 OutBack</p>
+        <p style="margin: 0 0 4px 0;">4. 复杂动画用串行组编排，避免手动 QTimer 链</p>
+        <p style="margin: 0 0 4px 0;">5. 配合 QStateMachine 做状态驱动的动画切换</p>
+        <p style="margin: 0 0 4px 0;">6. 子控件淡入淡出用 QGraphicsOpacityEffect + QPropertyAnimation</p>
+        <p style="margin: 0 0 4px 0;">7. 测试动画流畅度：启用 vsync、避免动画中同步 IO</p>
+        <p style="margin: 0 0 4px 0;">8. 用户体验原则：可关闭动画（无障碍 / prefers-reduced-motion）</p>
+      </div>
+    </div>
+
+    <h2 style="font-size: 14px; font-weight: 500; margin: 16px 0 8px 0;">与已学主题联动</h2>
+    <div style="font-size: 12px;">
+      <div class="api-row"><span class="api-name">+ QStateMachine</span><span class="api-desc">状态切换触发动画（QPropertyAnimation 作为信号/槽响应）</span></div>
+      <div class="api-row"><span class="api-name">+ QProperty / QBindable</span><span class="api-desc">Qt 6 属性绑定 + 动画 = 数据驱动 UI 过渡</span></div>
+      <div class="api-row"><span class="api-name">+ QGraphicsView</span><span class="api-desc">Item 动画（需 QGraphicsItem 同时继承 QObject）</span></div>
+      <div class="api-row"><span class="api-name">+ QTimer</span><span class="api-desc">作为动画的后备方案（当 Q_PROPERTY 不可用时）</span></div>
+      <div class="api-row"><span class="api-name">+ QThread</span><span class="api-desc">动画运行在 GUI 线程，计算密集型用 QtConcurrent 预处理</span></div>
+    </div>
+  </div>`;
+};
+
+function switchTab(idx) {
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === idx);
+  });
+  document.getElementById('tabContent').innerHTML = tabs[idx]();
+  if (idx === 2) {
+    setTimeout(() => { drawEasing(); }, 50);
+  }
+}
+
+switchTab(0);
+
+let demoAnimId = null;
+function resetDemoAnim() {
+  if (demoAnimId) cancelAnimationFrame(demoAnimId);
+  const box = document.getElementById('demoBox');
+  if (!box) return;
+  box.style.left = '8px'; box.style.top = '10px';
+  box.style.width = '60px'; box.style.height = '36px';
+  box.style.opacity = '1'; box.style.transition = 'none';
+}
+
+function runDemoAnim(type) {
+  if (demoAnimId) cancelAnimationFrame(demoAnimId);
+  const box = document.getElementById('demoBox');
+  if (!box) return;
+  resetDemoAnim();
+  const duration = parseInt(document.getElementById('demoDuration').value);
+  const easingFn = getEasingFunction(document.getElementById('demoEasing').value);
+  const start = performance.now();
+  function tick(now) {
+    let t = Math.min((now - start) / duration, 1);
+    const p = easingFn(t);
+    if (type === 'pos') box.style.left = (8 + p * 550) + 'px';
+    else if (type === 'size') { box.style.width = (60 + p * 160) + 'px'; box.style.height = (36 + p * 60) + 'px'; }
+    else if (type === 'opacity') box.style.opacity = (1 - p * 0.85).toFixed(2);
+    if (t < 1) demoAnimId = requestAnimationFrame(tick);
+  }
+  demoAnimId = requestAnimationFrame(tick);
+}
+
+function getEasingFunction(name) {
+  const fns = {
+    linear: t => t,
+    easeIn: t => t * t * t,
+    easeOut: t => 1 - Math.pow(1 - t, 3),
+    easeInOut: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+    inElastic: t => t === 0 ? 0 : t === 1 ? 1 : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * 2 * Math.PI / 3),
+    outElastic: t => t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * 2 * Math.PI / 3) + 1,
+    inOutElastic: t => t === 0 ? 0 : t === 1 ? 1 : t < 0.5 ? -(Math.pow(2, 20 * t - 10) * Math.sin((20 * t - 11.125) * 2 * Math.PI / 4.5)) / 2 : Math.pow(2, -20 * t + 10) * Math.sin((20 * t - 11.125) * 2 * Math.PI / 4.5) / 2 + 1,
+    inBack: t => { const s = 1.70158; return t * t * ((s + 1) * t - s); },
+    outBack: t => { const s = 1.70158; return 1 + (t - 1) * (t - 1) * ((s + 1) * (t - 1) + s); },
+    inOutBack: t => { const s = 1.70158 * 1.525; return t < 0.5 ? (t * 2) * (t * 2) * ((s + 1) * 2 * t - s) / 2 : ((t * 2 - 2) * (t * 2 - 2) * ((s + 1) * (t * 2 - 2) + s) + 2) / 2; },
+    inBounce: t => 1 - getEasingFunction('outBounce')(1 - t),
+    outBounce: t => { const n1 = 7.5625, d1 = 2.75; if (t < 1/d1) return n1*t*t; else if (t < 2/d1) return n1*(t-=1.5/d1)*t+0.75; else if (t < 2.5/d1) return n1*(t-=2.25/d1)*t+0.9375; else return n1*(t-=2.625/d1)*t+0.984375; },
+    inOutBounce: t => t < 0.5 ? (1 - getEasingFunction('outBounce')(1 - 2*t)) / 2 : (1 + getEasingFunction('outBounce')(2*t - 1)) / 2,
+    inSine: t => 1 - Math.cos(t * Math.PI / 2),
+    outSine: t => Math.sin(t * Math.PI / 2),
+    inOutSine: t => -(Math.cos(Math.PI * t) - 1) / 2,
+    inCubic: t => t * t * t,
+    outCubic: t => 1 - Math.pow(1 - t, 3),
+    inOutCubic: t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2,
+    inCirc: t => 1 - Math.sqrt(1 - t * t),
+    outCirc: t => Math.sqrt(1 - (t - 1) * (t - 1)),
+    inOutCirc: t => t < 0.5 ? (1 - Math.sqrt(1 - Math.pow(2*t,2))) / 2 : (Math.sqrt(1 - Math.pow(-2*t+2,2)) + 1) / 2,
+  };
+  return fns[name] || fns.linear;
+}
+
+function drawEasing() {
+  const canvas = document.getElementById('easingCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const name = document.getElementById('easingSelect').value;
+  const fn = getEasingFunction(name);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, w, h);
+  const pad = 30, gw = w - pad * 2, gh = h - pad * 2;
+  ctx.strokeStyle = '#E8E8E8'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad + gh * i / 4;
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(pad + gw, y); ctx.stroke();
+    const x = pad + gw * i / 4;
+    ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, pad + gh); ctx.stroke();
+  }
+  ctx.fillStyle = '#888'; ctx.font = '10px sans-serif';
+  ctx.fillText('0', pad - 10, pad + gh + 12);
+  ctx.fillText('1', pad + gw - 2, pad + gh + 12);
+  ctx.fillText('0', pad - 16, pad + gh + 4);
+  ctx.fillText('1', pad - 16, pad + 4);
+  ctx.strokeStyle = '#D3D1C7'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(pad, pad + gh); ctx.lineTo(pad + gw, pad); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i <= 200; i++) {
+    const t = i / 200; const v = fn(t);
+    const x = pad + t * gw; const y = pad + gh - v * gh;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#378ADD'; ctx.font = '11px sans-serif';
+  ctx.fillText(name, pad + 4, pad - 8);
+}
+
+function playEasingDemo() {
+  const ball = document.getElementById('easingBall');
+  if (!ball) return;
+  const fn = getEasingFunction(document.getElementById('easingSelect').value);
+  const duration = 1000;
+  const start = performance.now();
+  const parentW = ball.parentElement.offsetWidth - 32;
+  function tick(now) {
+    let t = Math.min((now - start) / duration, 1);
+    ball.style.marginLeft = (8 + fn(t) * parentW) + 'px';
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  ball.style.marginLeft = '8px';
+  requestAnimationFrame(tick);
+}
+
+let groupAnimId = null;
+function runGroupDemo() {
+  if (groupAnimId) cancelAnimationFrame(groupAnimId);
+  const seqA = document.getElementById('seqA');
+  const parA = document.getElementById('parA');
+  const parB = document.getElementById('parB');
+  if (!seqA || !parA) return;
+  seqA.style.left = '4px'; parA.style.left = '4px'; parB.style.left = '4px';
+  const seqDur = 1500;
+  const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min((now - start) / seqDur, 1);
+    if (t < 0.5) { const p = ease(t * 2); seqA.style.left = (4 + p * 180) + 'px'; }
+    else { seqA.style.left = '184px'; }
+    const p = ease(Math.min(t * 2, 1));
+    parA.style.left = (4 + p * 180) + 'px';
+    parB.style.left = (4 + p * 130) + 'px';
+    if (t < 1) groupAnimId = requestAnimationFrame(tick);
+  }
+  groupAnimId = requestAnimationFrame(tick);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qt 每日学习 — QStateMachine 状态机框架</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --card: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text2: #8b949e;
+  --accent: #58a6ff;
+  --green: #3fb950;
+  --orange: #d2991d;
+  --red: #f85149;
+  --purple: #a371f7;
+  --cyan: #39d353;
+  --code-bg: #1c2128;
+  --hover: #1c2128;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); line-height:1.7; min-height:100vh; }
+.header { background:linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding:36px 24px 28px; text-align:center; border-bottom:1px solid var(--border); }
+.header h1 { font-size:2em; margin-bottom:6px; background:linear-gradient(135deg, #58a6ff, #a371f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.header .sub { color:var(--text2); font-size:0.95em; }
+.header .date { color:var(--text2); font-size:0.8em; margin-top:4px; }
+.nav { display:flex; overflow-x:auto; background:var(--card); border-bottom:1px solid var(--border); gap:0; scrollbar-width:none; }
+.nav::-webkit-scrollbar { display:none; }
+.tab-btn { padding:12px 20px; background:none; border:none; color:var(--text2); font-size:0.9em; cursor:pointer; white-space:nowrap; border-bottom:2px solid transparent; transition:all .2s; font-family:inherit; }
+.tab-btn:hover { color:var(--text); background:var(--hover); }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+.content { max-width:1100px; margin:0 auto; padding:24px 20px; }
+.tab-panel { display:none; animation:fadeIn .35s ease; }
+.tab-panel.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+.card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:20px 24px; margin-bottom:18px; }
+.card h2 { font-size:1.25em; margin-bottom:12px; color:var(--accent); border-left:3px solid var(--accent); padding-left:10px; }
+.card h3 { font-size:1.05em; margin:16px 0 8px; color:var(--purple); }
+.card p { margin-bottom:10px; color:var(--text2); }
+.card ul, .card ol { margin:8px 0 8px 22px; color:var(--text2); }
+.card li { margin-bottom:4px; }
+pre { background:var(--code-bg); border:1px solid var(--border); border-radius:6px; padding:14px 18px; overflow-x:auto; font-size:0.85em; line-height:1.55; margin:10px 0; }
+code { font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace; font-size:0.9em; }
+.keyword { color:#ff7b72; }
+.type { color:#79c0ff; }
+.func { color:#d2a8ff; }
+.string { color:#a5d6ff; }
+.comment { color:#8b949e; font-style:italic; }
+.num { color:#79c0ff; }
+.macro { color:#ffa657; }
+.tag { font-size:0.78em; padding:2px 8px; border-radius:10px; font-weight:600; display:inline-block; margin-right:4px; }
+.tag-ok { background:rgba(63,185,80,0.18); color:var(--green); }
+.tag-warn { background:rgba(210,153,29,0.18); color:var(--orange); }
+.tag-info { background:rgba(88,166,255,0.18); color:var(--accent); }
+.tag-err { background:rgba(248,81,73,0.18); color:var(--red); }
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:0.9em; }
+table th { background:var(--code-bg); padding:10px 14px; text-align:left; font-weight:600; border-bottom:2px solid var(--border); color:var(--accent); }
+table td { padding:9px 14px; border-bottom:1px solid var(--border); color:var(--text2); }
+table tr:hover td { background:var(--hover); }
+svg text { font-family:'Segoe UI',system-ui,sans-serif; }
+.state-visual { background:var(--code-bg); border-radius:8px; padding:20px; margin:14px 0; text-align:center; overflow-x:auto; }
+.interactive-demo { background:var(--code-bg); border-radius:8px; padding:20px; margin:14px 0; }
+.demo-controls { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.demo-btn { padding:8px 18px; border:1px solid var(--border); border-radius:6px; background:var(--card); color:var(--text); cursor:pointer; font-size:0.9em; transition:all .2s; font-family:inherit; }
+.demo-btn:hover { border-color:var(--accent); color:var(--accent); }
+.demo-btn.active-s { border-color:var(--green); color:var(--green); background:rgba(63,185,80,0.1); }
+.demo-state { display:inline-block; padding:4px 14px; border-radius:14px; font-weight:600; font-size:0.88em; margin:4px; }
+.state-idle { background:rgba(139,148,158,0.2); color:#8b949e; }
+.state-active { background:rgba(63,185,80,0.2); color:var(--green); }
+.state-error { background:rgba(248,81,73,0.2); color:var(--red); }
+.state-process { background:rgba(88,166,255,0.2); color:var(--accent); }
+.transition-arrow { color:var(--purple); font-weight:bold; }
+.signal-chip { background:rgba(163,113,247,0.15); color:var(--purple); padding:2px 8px; border-radius:4px; font-size:0.82em; font-family:monospace; }
+.footnote { background:rgba(210,153,29,0.08); border-left:3px solid var(--orange); padding:10px 14px; border-radius:0 6px 6px 0; margin:14px 0; font-size:0.88em; color:var(--text2); }
+.tip-box { background:rgba(63,185,80,0.08); border-left:3px solid var(--green); padding:10px 14px; border-radius:0 6px 6px 0; margin:14px 0; font-size:0.88em; color:var(--text2); }
+.compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media(max-width:700px){ .compare-grid{grid-template-columns:1fr;} }
+.flow-step { display:flex; align-items:center; gap:10px; margin:6px 0; font-size:0.9em; }
+.flow-num { width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:0.82em; flex-shrink:0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>QStateMachine — Qt 状态机框架</h1>
+  <div class="sub">将复杂的"如果…否则…"逻辑替换为声明式状态图</div>
+  <div class="date">2026年6月11日 · Day 26 · Qt 6 兼容</div>
+</div>
+
+<div class="nav" id="nav"></div>
+
+<div class="content" id="content"></div>
+
+<script>
+// ========== 数据定义 ==========
+const tabs = [
+{id:'concept',label:'概念与架构'},
+{id:'basic',label:'基础用法'},
+{id:'signal',label:'信号转换'},
+{id:'parallel',label:'并行状态'},
+{id:'history',label:'历史状态'},
+{id:'api',label:'常用API速查'},
+{id:'pitfalls',label:'避坑与最佳实践'}
+];
+
+// ========== 渲染函数 ==========
+function renderNav(){ document.getElementById('nav').innerHTML = tabs.map((t,i)=>`<button class="tab-btn${i===0?' active':''}" onclick="switchTab('${t.id}')">${t.label}</button>`).join(''); }
+function switchTab(id){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i].id===id));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+}
+
+// ========== 内容面板 ==========
+function renderPanels(){
+let html='';
+// --- 面板1: 概念与架构 ---
+html+=`
+<div class="tab-panel active" id="panel-concept">
+<div class="card">
+<h2>🤔 为什么需要状态机？</h2>
+<p>想一想你写过的代码：网络请求在"空闲→连接中→已连接→断开"之间切换；播放器在"停止→播放→暂停→缓冲"之间流转；界面在不同模式间切换……手写 <code>if/else</code> 很容易变成意大利面条。</p>
+<p><span class="tag tag-ok">状态机</span> 把系统行为建模为 <b>状态(State) + 转换(Transition)</b>，让逻辑 <b>可视化、可测试、不易出错</b>。</p>
+</div>
+
+<div class="card">
+<h2>🧱 QStateMachine 体系架构</h2>
+<div class="state-visual">`+renderConceptSVG()+`</div>
+<table>
+<tr><th>角色</th><th>类名</th><th>职责</th></tr>
+<tr><td>🏭 引擎</td><td><code>QStateMachine</code></td><td>管理所有状态和转换，驱动状态切换，发出信号</td></tr>
+<tr><td>📍 状态</td><td><code>QState</code></td><td>表示系统的一个状态，可嵌套子状态</td></tr>
+<tr><td>🏁 终态</td><td><code>QFinalState</code></td><td>状态机的终点，到达后发送 <code>finished()</code> 信号</td></tr>
+<tr><td>🔀 转换</td><td><code>QAbstractTransition</code></td><td>抽象基类，描述从一个状态到另一个状态的迁移</td></tr>
+<tr><td>📶 信号转换</td><td><code>QSignalTransition</code></td><td>由 Qt 信号触发的转换（最常用）</td></tr>
+<tr><td>⏱️ 超时转换</td><td><code>QTimeoutTransition*</code></td><td>Qt 6.8 新增：定时器触发转换</td></tr>
+<tr><td>📋 历史状态</td><td><code>QHistoryState</code></td><td>记住"退出前的子状态"，下次回来恢复</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>📦 模块与头文件</h2>
+<pre><code><span class="comment">// CMakeLists.txt (Qt 6)</span>
+<span class="func">find_package</span>(Qt6 <span class="macro">REQUIRED</span> COMPONENTS StateMachine)
+<span class="func">target_link_libraries</span>(myapp <span class="macro">PRIVATE</span> Qt6::StateMachine)
+
+<span class="comment">// 头文件</span>
+<span class="macro">#include</span> <span class="string">&lt;QStateMachine&gt;</span>
+<span class="macro">#include</span> <span class="string">&lt;QState&gt;</span>
+<span class="macro">#include</span> <span class="string">&lt;QFinalState&gt;</span>
+<span class="macro">#include</span> <span class="string">&lt;QSignalTransition&gt;</span>
+<span class="macro">#include</span> <span class="string">&lt;QHistoryState&gt;</span>
+
+<span class="comment">// Qt 5: 无需额外模块，Qt5::Core 自带</span></code></pre>
+<div class="footnote"><strong>Qt 6 注意：</strong>QStateMachine 从 QtCore 移到了独立模块 <code>Qt6StateMachine</code>（Qt 6.0~6.7: 需要单独链接; Qt 6.8+: 回归 QtCore）。如果你的 Qt 版本 &lt; 6.8，记得 <code>find_package(Qt6 REQUIRED COMPONENTS StateMachine)</code>。</div>
+</div>
+</div>`;
+
+// --- 面板2: 基础用法 ---
+html+=`
+<div class="tab-panel" id="panel-basic">
+<div class="card">
+<h2>📝 最小示例：红绿灯状态机</h2>
+<p>用 QStateMachine 建模一个经典的红绿灯循环：<b>红 → 绿 → 黄 → 红 → …</b></p>
+<pre><code><span class="macro">#include</span> <span class="string">&lt;QStateMachine&gt;</span>
+<span class="macro">#include</span> <span class="string">&lt;QState&gt;</span>
+<span class="macro">#include</span> <span class="string">&lt;QFinalState&gt;</span>
+
+<span class="comment">// 创建状态机</span>
+<span class="type">QStateMachine</span> *machine = <span class="keyword">new</span> <span class="type">QStateMachine</span>(<span class="keyword">this</span>);
+
+<span class="comment">// 定义状态</span>
+<span class="type">QState</span> *red    = <span class="keyword">new</span> <span class="type">QState</span>();
+<span class="type">QState</span> *green  = <span class="keyword">new</span> <span class="type">QState</span>();
+<span class="type">QState</span> *yellow = <span class="keyword">new</span> <span class="type">QState</span>();
+<span class="type">QFinalState</span> *done  = <span class="keyword">new</span> <span class="type">QFinalState</span>();
+
+<span class="comment">// 状态进入/退出时做事情</span>
+red<span class="func">->assignProperty</span>(ui->label, <span class="string">"text"</span>, <span class="string">"🔴 红灯 — 停车"</span>);
+green<span class="func">->assignProperty</span>(ui->label, <span class="string">"text"</span>, <span class="string">"🟢 绿灯 — 通行"</span>);
+yellow<span class="func">->assignProperty</span>(ui->label, <span class="string">"text"</span>, <span class="string">"🟡 黄灯 — 减速"</span>);
+
+<span class="comment">// 定义转换：信号触发</span>
+red<span class="func">->addTransition</span>(ui->btnNext, &<span class="type">QPushButton</span>::clicked, green);
+green<span class="func">->addTransition</span>(ui->btnNext, &<span class="type">QPushButton</span>::clicked, yellow);
+yellow<span class="func">->addTransition</span>(ui->btnNext, &<span class="type">QPushButton</span>::clicked, red);
+
+<span class="comment">// 或转换成终态（停止状态机）</span>
+yellow<span class="func">->addTransition</span>(ui->btnStop, &<span class="type">QPushButton</span>::clicked, done);
+
+<span class="comment">// 添加状态到状态机，设置初始状态</span>
+machine<span class="func">->addState</span>(red);
+machine<span class="func">->addState</span>(green);
+machine<span class="func">->addState</span>(yellow);
+machine<span class="func">->addState</span>(done);
+machine<span class="func">->setInitialState</span>(red);
+
+<span class="comment">// 启动！</span>
+machine<span class="func">->start</span>();</code></pre>
+</div>
+
+<div class="card">
+<h2>🎮 实时演示：红绿灯状态机</h2>
+<div class="interactive-demo" id="trafficLightDemo">
+<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;">
+  <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
+    <div style="font-size:2.5em;" id="lightIcon">🔴</div>
+    <div id="lightText" style="color:var(--accent);font-weight:600;">红灯</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <button class="demo-btn" onclick="tlNext()">▶ 下一个状态 (模拟 clicked)</button>
+    <button class="demo-btn" onclick="tlReset()">🔄 重置</button>
+    <div style="font-size:0.78em;color:var(--text2);margin-top:4px;">当前状态: <span id="tlState" style="color:var(--purple);"></span></div>
+    <div style="font-size:0.78em;color:var(--text2);">转换次数: <span id="tlCount">0</span></div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="card">
+<h2>👶 嵌套状态（子状态机）</h2>
+<p>QState 天然支持嵌套——设置 <code>childMode</code> 即可在状态内部定义子状态机：</p>
+<pre><code><span class="comment">// 播放器 "播放中" 状态包含三个子状态</span>
+<span class="type">QState</span> *playing = <span class="keyword">new</span> <span class="type">QState</span>(QState::<span class="keyword">ExclusiveStates</span>);
+<span class="type">QState</span> *playingPaused  = <span class="keyword">new</span> <span class="type">QState</span>(playing);
+<span class="type">QState</span> *playingBuffering = <span class="keyword">new</span> <span class="type">QState</span>(playing);
+<span class="type">QState</span> *playingActive   = <span class="keyword">new</span> <span class="type">QState</span>(playing);
+playing<span class="func">->setInitialState</span>(playingActive);
+
+<span class="comment">// 子状态间转换</span>
+playingActive<span class="func">->addTransition</span>(signal_buffering, playingBuffering);
+playingBuffering<span class="func">->addTransition</span>(signal_ready, playingActive);</code></pre>
+<div class="tip-box"><strong>关键概念：</strong>嵌套状态的 <code>childMode</code> 有两种——<code>ExclusiveStates</code>（互斥，同一时间只有一个子状态活跃）和 <code>ParallelStates</code>（并行，所有子状态同时活跃，见后面"并行状态"标签页）。</div>
+</div>
+</div>`;
+
+// --- 面板3: 信号转换 ---
+html+=`
+<div class="tab-panel" id="panel-signal">
+<div class="card">
+<h2>📶 QSignalTransition — 最灵活的转换方式</h2>
+<p>QStateMachine 的核心魅力在于：<b>转换不只是"点击按钮"，而是任何 Qt 信号都可以触发</b>。</p>
+</div>
+
+<div class="card">
+<h2>🪝 三种创建信号转换的方式</h2>
+<table>
+<tr><th>方式</th><th>示例</th><th>适用场景</th></tr>
+<tr>
+  <td><b>1. addTransition 快捷版</b></td>
+  <td><code>s1->addTransition(btn, &QPushButton::clicked, s2);</code></td>
+  <td>简单场景，信号直接映射到目标状态</td>
+</tr>
+<tr>
+  <td><b>2. QSignalTransition 对象</b></td>
+  <td><code>QSignalTransition *t = new QSignalTransition(sender, SIGNAL(xxx));</code></td>
+  <td>需要额外逻辑（动画、条件判断）</td>
+</tr>
+<tr>
+  <td><b>3. 事件转换</b></td>
+  <td><code>QEventTransition</code>（继承 QAbstractTransition）</td>
+  <td>由 QEvent 触发（如键盘事件）</td>
+</tr>
+</table>
+</div>
+
+<div class="card">
+<h2>✍️ 实战：带条件的状态转换</h2>
+<pre><code><span class="comment">// 自定义转换类：校验通过才能跳转</span>
+<span class="keyword">class</span> <span class="type">ValidatedTransition</span> : <span class="keyword">public</span> <span class="type">QSignalTransition</span>
+{
+<span class="keyword">public</span>:
+    <span class="func">ValidatedTransition</span>(<span class="type">QObject</span> *sender, <span class="keyword">const char</span> *signal,
+                        <span class="type">QState</span> *target)
+        : <span class="func">QSignalTransition</span>(sender, signal) {
+        <span class="func">setTargetState</span>(target);
+    }
+
+<span class="keyword">protected</span>:
+    <span class="keyword">bool</span> <span class="func">eventTest</span>(<span class="type">QEvent</span> *e) <span class="keyword">override</span> {
+        <span class="comment">// 只有数据有效时才允许转换</span>
+        <span class="keyword">if</span> (!<span class="type">QSignalTransition</span>::<span class="func">eventTest</span>(e))
+            <span class="keyword">return</span> <span class="keyword">false</span>;
+        <span class="keyword">return</span> m_validator.<span class="func">validate</span>(m_data);
+    }
+
+    <span class="keyword">void</span> <span class="func">onTransition</span>(<span class="type">QEvent</span> *e) <span class="keyword">override</span> {
+        <span class="comment">// 转换发生时做清理/日志等额外操作</span>
+        <span class="func">qDebug</span>() << <span class="string">"Transition validated!"</span>;
+        m_data.<span class="func">clear</span>();
+    }
+
+<span class="keyword">private</span>:
+    <span class="type">Validator</span> m_validator;
+    <span class="type">Data</span> m_data;
+};
+
+<span class="comment">// 使用</span>
+<span class="type">ValidatedTransition</span> *vt = <span class="keyword">new</span> <span class="type">ValidatedTransition</span>(
+    ui->btnSubmit, <span class="macro">SIGNAL</span>(<span class="func">clicked</span>()), stateSubmitted);
+idle<span class="func">->addTransition</span>(vt);</code></pre>
+</div>
+
+<div class="card">
+<h2>🎯 信号参数传递</h2>
+<p>QSignalTransition 的 <code>senderSignalIndex()</code> 可以拿到信号参数。再结合 <code>eventTest(QEvent*)</code> 中访问 <code>QStateMachine::SignalEvent</code>：</p>
+<pre><code><span class="keyword">bool</span> <span class="func">eventTest</span>(<span class="type">QEvent</span> *e) <span class="keyword">override</span> {
+    <span class="type">QStateMachine::SignalEvent</span> *se =
+        <span class="keyword">static_cast</span>&lt;<span class="type">QStateMachine::SignalEvent</span>*&gt;(e);
+    <span class="type">QVariantList</span> args = se<span class="func">->arguments</span>();
+    <span class="keyword">int</span> value = args.<span class="func">at</span>(<span class="num">0</span>).<span class="func">toInt</span>();
+    <span class="keyword">return</span> value > <span class="num">0</span>;  <span class="comment">// 只有正数才允许转换</span>
+}</code></pre>
+</div>
+
+<div class="card">
+<h2>🎬 状态动画（进入/退出效果）</h2>
+<p>在状态的 <code>onEntry()</code> 和 <code>onExit()</code> 中驱动 QPropertyAnimation：</p>
+<pre><code><span class="comment">// 连接状态的 entered/exited 信号</span>
+<span class="func">connect</span>(stateVisible, &<span class="type">QState</span>::entered, [widget]() {
+    <span class="type">QPropertyAnimation</span> *anim = <span class="keyword">new</span> <span class="type">QPropertyAnimation</span>(widget, <span class="string">"opacity"</span>);
+    anim<span class="func">->setDuration</span>(<span class="num">300</span>);
+    anim<span class="func">->setStartValue</span>(<span class="num">0.0</span>);
+    anim<span class="func">->setEndValue</span>(<span class="num">1.0</span>);
+    anim<span class="func">->start</span>(<span class="type">QAbstractAnimation</span>::DeleteWhenStopped);
+});
+<span class="func">connect</span>(stateVisible, &<span class="type">QState</span>::exited, [widget]() {
+    widget<span class="func">->hide</span>();
+});</code></pre>
+</div>
+</div>`;
+
+// --- 面板4: 并行状态 ---
+html+=`
+<div class="tab-panel" id="panel-parallel">
+<div class="card">
+<h2>⚡ QState::ParallelStates — 一个状态的多个"维度"同时运行</h2>
+<p>有时一个系统有<b>多个互不干扰的状态维度</b>。比如一个网络客户端同时有：</p>
+<ul>
+  <li><b>连接状态：</b>未连接 / 连接中 / 已连接 / 断开</li>
+  <li><b>认证状态：</b>未登录 / 登录中 / 已登录 / 过期</li>
+</ul>
+<p>这两个维度 <b>并行独立</b>，用嵌套互斥状态就太复杂了。这就是 <code>ParallelStates</code> 的用武之地。</p>
+</div>
+
+<div class="card">
+<h2>📐 并行状态架构图</h2>
+<div class="state-visual">`+renderParallelSVG()+`</div>
+</div>
+
+<div class="card">
+<h2>💻 代码示例：网络客户端</h2>
+<pre><code><span class="comment">// 根状态：并行模式——连接与认证两个维度同时管理</span>
+<span class="type">QState</span> *root = <span class="keyword">new</span> <span class="type">QState</span>(QState::<span class="keyword">ParallelStates</span>);
+
+<span class="comment">// ====== 维度1：连接状态组 ======</span>
+<span class="type">QState</span> *connGroup = <span class="keyword">new</span> <span class="type">QState</span>(root);
+<span class="type">QState</span> *sDisconnected = <span class="keyword">new</span> <span class="type">QState</span>(connGroup);
+<span class="type">QState</span> *sConnecting    = <span class="keyword">new</span> <span class="type">QState</span>(connGroup);
+<span class="type">QState</span> *sConnected    = <span class="keyword">new</span> <span class="type">QState</span>(connGroup);
+connGroup<span class="func">->setInitialState</span>(sDisconnected);
+
+sDisconnected<span class="func">->addTransition</span>(... /* 开始连接 */, sConnecting);
+sConnecting<span class="func">->addTransition</span>(... /* 连接成功 */, sConnected);
+sConnected<span class="func">->addTransition</span>(... /* 断开 */, sDisconnected);
+
+<span class="comment">// ====== 维度2：认证状态组 ======</span>
+<span class="type">QState</span> *authGroup = <span class="keyword">new</span> <span class="type">QState</span>(root);
+<span class="type">QState</span> *sAnonymous = <span class="keyword">new</span> <span class="type">QState</span>(authGroup);
+<span class="type">QState</span> *sLoggingIn = <span class="keyword">new</span> <span class="type">QState</span>(authGroup);
+<span class="type">QState</span> *sLoggedIn  = <span class="keyword">new</span> <span class="type">QState</span>(authGroup);
+authGroup<span class="func">->setInitialState</span>(sAnonymous);
+
+<span class="comment">// 此时机器可能处于 "已连接 + 未登录" 或 "已连接 + 已登录" 等组合</span></code></pre>
+<div class="tip-box"><strong>技巧：</strong>并行状态的子状态都必须是 <code>ExclusiveStates</code>（默认）。但不同并行分组之间可以互相监听对方的 <code>entered/exited</code> 信号来实现跨维度协调。</div>
+</div>
+</div>`;
+
+// --- 面板5: 历史状态 ---
+html+=`
+<div class="tab-panel" id="panel-history">
+<div class="card">
+<h2>📋 QHistoryState — "记住我上次在哪儿"</h2>
+<p>状态机场景：用户从 <b>"主界面"</b> 进入 <b>"设置"</b>，设置中有多个子页面。退出设置后，应该回到主界面的哪个位置？如果用户之前在主界面的 <b>"播放列表"</b> 标签页，应该回到那里——这就是历史状态。</p>
+</div>
+
+<div class="card">
+<h2>📐 历史状态原理图</h2>
+<div class="state-visual">`+renderHistorySVG()+`</div>
+</div>
+
+<div class="card">
+<h2>💻 代码示例</h2>
+<pre><code><span class="type">QState</span> *mainGroup = <span class="keyword">new</span> <span class="type">QState</span>();
+<span class="type">QState</span> *tabHome    = <span class="keyword">new</span> <span class="type">QState</span>(mainGroup);
+<span class="type">QState</span> *tabSearch  = <span class="keyword">new</span> <span class="type">QState</span>(mainGroup);
+<span class="type">QState</span> *tabProfile = <span class="keyword">new</span> <span class="type">QState</span>(mainGroup);
+mainGroup<span class="func">->setInitialState</span>(tabHome);
+
+<span class="comment">// 创建历史状态——记住离开时的子状态</span>
+<span class="type">QHistoryState</span> *history = <span class="keyword">new</span> <span class="type">QHistoryState</span>(
+    QHistoryState::<span class="keyword">DeepHistory</span>, mainGroup);
+
+<span class="comment">// 设置页</span>
+<span class="type">QState</span> *settings = <span class="keyword">new</span> <span class="type">QState</span>();
+
+<span class="comment">// 从设置返回时，回到之前的主界面子状态</span>
+settings<span class="func">->addTransition</span>(ui->btnBack, &<span class="type">QPushButton</span>::clicked, history);
+
+<span class="comment">// ShallowHistory: 只记第一层; DeepHistory: 记所有嵌套层级</span></code></pre>
+<div class="footnote"><strong>Shallow vs Deep：</strong><code>ShallowHistory</code> 只记住历史状态的直接子状态（默认状态如果从未进入过）；<code>DeepHistory</code> 递归记住整个嵌套子树。大多数场景用 DeepHistory。</div>
+</div>
+
+<div class="card">
+<h2>🔄 历史状态交互演示</h2>
+<div class="interactive-demo" id="historyDemo">
+  <div style="margin-bottom:12px;">
+    <span style="font-weight:600;">主界面子标签：</span>
+    <span id="hActive" class="demo-state state-active">首页</span>
+    <span id="hOther1" class="demo-state state-idle">搜索</span>
+    <span id="hOther2" class="demo-state state-idle">个人</span>
+  </div>
+  <div class="demo-controls">
+    <button class="demo-btn" onclick="hSwitch('search')">切换到搜索</button>
+    <button class="demo-btn" onclick="hSwitch('profile')">切换到个人</button>
+    <button class="demo-btn" onclick="hGoSettings()">⚙ 进入设置</button>
+    <button class="demo-btn" onclick="hGoBack()" id="hBackBtn" disabled>↩ 返回（通过历史状态）</button>
+  </div>
+  <div id="hMsg" style="font-size:0.85em;color:var(--text2);margin-top:8px;"></div>
+</div>
+</div>
+</div>`;
+
+// --- 面板6: 常用API速查 ---
+html+=`
+<div class="tab-panel" id="panel-api">
+<div class="card">
+<h2>🏭 QStateMachine 核心方法</h2>
+<table>
+<tr><th>方法</th><th>说明</th></tr>
+<tr><td><code>addState(QAbstractState*)</code></td><td>添加状态到状态机</td></tr>
+<tr><td><code>removeState(QAbstractState*)</code></td><td>移除状态</td></tr>
+<tr><td><code>setInitialState(QAbstractState*)</code></td><td>设置初始状态</td></tr>
+<tr><td><code>start()</code></td><td>启动状态机</td></tr>
+<tr><td><code>stop()</code></td><td>停止状态机</td></tr>
+<tr><td><code>setRunning(bool)</code></td><td>启动/停止（Qt 6.8+ 推荐）</td></tr>
+<tr><td><code>configuration()</code></td><td>返回当前活跃状态集合</td></tr>
+<tr><td><code>setGlobalRestorePolicy()</code></td><td>全局属性恢复策略</td></tr>
+<tr><td><code>postEvent(QEvent*)</code></td><td>投递事件到状态机</td></tr>
+<tr><td><code>setAnimated(bool)</code></td><td>是否启用默认动画</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>📶 关键信号</h2>
+<table>
+<tr><th>信号</th><th>触发时机</th></tr>
+<tr><td><code>started()</code></td><td>状态机启动</td></tr>
+<tr><td><code>stopped()</code></td><td>状态机停止</td></tr>
+<tr><td><code>finished()</code></td><td>进入 QFinalState</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>📍 QState 核心方法</h2>
+<table>
+<tr><th>方法</th><th>说明</th></tr>
+<tr><td><code>addTransition(QObject*, signal, target)</code></td><td>添加信号转换（最常用）</td></tr>
+<tr><td><code>addTransition(QAbstractTransition*)</code></td><td>添加自定义转换对象</td></tr>
+<tr><td><code>addTransition(target)</code></td><td>添加无触发条件转换（立即）</td></tr>
+<tr><td><code>removeTransition(QAbstractTransition*)</code></td><td>移除转换</td></tr>
+<tr><td><code>assignProperty(obj, name, value)</code></td><td>进入状态时自动设置属性</td></tr>
+<tr><td><code>setChildMode(ChildMode)</code></td><td>ExclusiveStates 或 ParallelStates</td></tr>
+<tr><td><code>setInitialState(QAbstractState*)</code></td><td>设置子状态初始状态</td></tr>
+<tr><td><code>setErrorState(QAbstractState*)</code></td><td>设置错误处理状态</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>📶 QState 关键信号</h2>
+<table>
+<tr><th>信号</th><th>参数</th><th>时机</th></tr>
+<tr><td><code>entered()</code></td><td>—</td><td>状态被激活</td></tr>
+<tr><td><code>exited()</code></td><td>—</td><td>状态被离开</td></tr>
+<tr><td><code>propertiesAssigned()</code></td><td>—</td><td>assignProperty 的属性已设置</td></tr>
+<tr><td><code>finished()</code></td><td>—</td><td>子状态机进入终态</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>🏁 QFinalState</h2>
+<table>
+<tr><th>方法</th><th>说明</th></tr>
+<tr><td><code>QFinalState(QState *parent)</code></td><td>创建终态，通常作为某个状态的子状态</td></tr>
+</table>
+<div class="tip-box"><strong>注意：</strong>QFinalState 是 <code>QAbstractState</code> 的轻量子类。当状态机进入 QFinalState 时，父状态发出 <code>finished()</code> 信号，状态机本身也发出 <code>finished()</code> 信号。</div>
+</div>
+</div>`;
+
+// --- 面板7: 避坑与最佳实践 ---
+html+=`
+<div class="tab-panel" id="panel-pitfalls">
+<div class="card">
+<h2>🚨 7 个经典避坑要点</h2>
+<ol>
+<li><b><span class="tag tag-err">坑1</span> 忘记 start()</b><br>
+创建了状态机但忘记调用 <code>start()</code>——状态机不会自动运行。这是最常见的初学者错误。
+</li>
+<li style="margin-top:10px;"><b><span class="tag tag-err">坑2</span> 生命周期管理</b><br>
+QStateMachine 继承自 QObject，可以用 <code>parent</code> 管理。但是所有状态 <b>必须在 start() 之前添加</b>。启动后动态 add/remove 状态行为未定义（Qt 6.8 改善但建议避免）。</li>
+<li style="margin-top:10px;"><b><span class="tag tag-err">坑3</span> assignProperty 只设置一次</b><br>
+<code>assignProperty</code> 的值在 <b>编译期确定</b>，无法绑定时变表达式。如果需要动态值，用 <code>connect(state, &QState::entered, [this]{ … });</code></li>
+<li style="margin-top:10px;"><b><span class="tag tag-err">坑4</span> 信号转换的线程安全</b><br>
+QStateMachine 默认在主线程的事件循环中运行。如果在子线程发出信号触发转换，行为是 <b>线程安全的</b>（信号入队），但不要在子线程直接操作状态机 API。</li>
+<li style="margin-top:10px;"><b><span class="tag tag-err">坑5</span> 过度设计</b><br>
+不是所有逻辑都需要状态机。简单的 2-3 个状态的 UI 切换用 if/else 更直观。状态机适合 <b>状态≥5 且有复杂转换规则</b> 的场景。</li>
+<li style="margin-top:10px;"><b><span class="tag tag-err">坑6</span> 嵌套状态 finished 信号的传播</b><br>
+当一个嵌套状态（父状态）的所有子状态都完成（进入 FinalState），父状态会发出 <code>finished()</code>。可以利用这个信号触发向上跳出。</li>
+<li style="margin-top:10px;"><b><span class="tag tag-err">坑7</span> Qt 6 模块分离</b><br>
+Qt 6.0~6.7 需要 <code>find_package(Qt6 COMPONENTS StateMachine)</code>，Qt 6.8+ 回归 Core。如果 CMake 配置不对会报 "Unknown module"。</li>
+</ol>
+</div>
+
+<div class="card">
+<h2>✅ 8 条最佳实践</h2>
+<ol>
+<li><b>先画图，再写代码。</b>在白板或 draw.io 上画出状态图，它比代码更直观。</li>
+<li><b>给状态起有意义的名字。</b><code>s1/s2/s3</code> 不如 <code>idle/connecting/connected</code>。</li>
+<li><b>用 assignProperty 解耦 UI。</b>状态只设置属性值，不知道 UI 细节。</li>
+<li><b>复杂条件用 eventTest，不过度继承。</b>优先在 Lambda 中处理，保持状态图清晰。</li>
+<li><b>配合 Q_PROPERTY + QBindable。</b>Qt 6 的属性绑定系统和状态机是天作之合。</li>
+<li><b>QFinalState 放在嵌套状态内。</b>让子状态机自己决定何时"完成"。</li>
+<li><b>善用 entered/exited 信号做副作用。</b>日志、统计、UI 过渡动画都接在这里。</li>
+<li><b>不要滥用 assignProperty 修改多个对象。</b>如果需要修改多个属性，用 <code>entered</code> 信号连接一个槽函数统一处理。</li>
+</ol>
+</div>
+
+<div class="card">
+<h2>🔗 与已学主题联动</h2>
+<table>
+<tr><th>已学主题</th><th>与 QStateMachine 的关系</th></tr>
+<tr><td>QObject</td><td>QStateMachine 是 QObject 子类，状态生命周期靠对象树管理</td></tr>
+<tr><td>QProperty / QBindable</td><td>assignProperty 核心机制；可绑定属性实现响应式状态切换</td></tr>
+<tr><td>QEventLoop</td><td>状态机内部依赖事件循环处理转换事件</td></tr>
+<tr><td>QSignalMapper (遗留)</td><td>旧式多路信号管理——状态机用状态图替代了这种模式</td></tr>
+<tr><td>QTimer</td><td>可配合 QTimeoutTransition（Qt 6.8+）实现定时转换</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>🎯 适用场景速查</h2>
+<table>
+<tr><th>场景</th><th>推荐度</th><th>理由</th></tr>
+<tr><td>多步骤向导 (Wizard)</td><td><span class="tag tag-ok">★★★★★</span></td><td>每步有明确的前进/后退规则</td></tr>
+<tr><td>网络连接管理</td><td><span class="tag tag-ok">★★★★★</span></td><td>连接状态+认证状态天然适合并行状态</td></tr>
+<tr><td>播放器控制</td><td><span class="tag tag-ok">★★★★☆</span></td><td>播放/暂停/缓冲/停止/错误 状态清晰</td></tr>
+<tr><td>游戏 NPC AI</td><td><span class="tag tag-ok">★★★★☆</span></td><td>巡逻/追击/战斗/死亡 状态转移</td></tr>
+<tr><td>表单验证</td><td><span class="tag tag-info">★★★☆☆</span></td><td>简单表单用 if/else 即可</td></tr>
+<tr><td>简单的 toggle 开关</td><td><span class="tag tag-warn">★☆☆☆☆</span></td><td>过度设计——用 bool 变量就行</td></tr>
+</table>
+</div>
+</div>`;
+
+return html;
+}
+
+// ========== SVG 图形 ==========
+function renderConceptSVG(){
+return `<svg width="820" height="380" viewBox="0 0 820 380">
+  <defs>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#58a6ff"/></marker>
+    <linearGradient id="gradSM" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1f6feb"/><stop offset="100%" stop-color="#58a6ff"/></linearGradient>
+    <linearGradient id="gradState" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#161b22"/><stop offset="100%" stop-color="#21262d"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter>
+  </defs>
+
+  <!-- 状态机引擎 -->
+  <rect x="290" y="15" width="240" height="52" rx="10" fill="url(#gradSM)" stroke="#58a6ff" stroke-width="2" filter="url(#glow)"/>
+  <text x="410" y="38" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold">QStateMachine 引擎</text>
+  <text x="410" y="56" text-anchor="middle" fill="#c9d1d9" font-size="11">事件循环驱动 · 管理所有状态与转换</text>
+
+  <!-- 状态节点 -->
+  <circle cx="100" cy="230" r="42" fill="url(#gradState)" stroke="#3fb950" stroke-width="2.5"/>
+  <text x="100" y="224" text-anchor="middle" fill="#3fb950" font-size="13" font-weight="bold">空闲</text>
+  <text x="100" y="242" text-anchor="middle" fill="#8b949e" font-size="10">Idle</text>
+
+  <circle cx="310" cy="230" r="42" fill="url(#gradState)" stroke="#d2991d" stroke-width="2.5"/>
+  <text x="310" y="224" text-anchor="middle" fill="#d2991d" font-size="13" font-weight="bold">连接中</text>
+  <text x="310" y="242" text-anchor="middle" fill="#8b949e" font-size="10">Connecting</text>
+
+  <circle cx="520" cy="230" r="42" fill="url(#gradState)" stroke="#58a6ff" stroke-width="2.5"/>
+  <text x="520" y="224" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="bold">已连接</text>
+  <text x="520" y="242" text-anchor="middle" fill="#8b949e" font-size="10">Connected</text>
+
+  <circle cx="720" cy="230" r="42" fill="url(#gradState)" stroke="#f85149" stroke-width="2.5"/>
+  <text x="720" y="224" text-anchor="middle" fill="#f85149" font-size="13" font-weight="bold">错误</text>
+  <text x="720" y="242" text-anchor="middle" fill="#8b949e" font-size="10">Error</text>
+
+  <!-- 终态 -->
+  <circle cx="520" cy="350" r="28" fill="url(#gradState)" stroke="#8b949e" stroke-width="2"/>
+  <circle cx="520" cy="350" r="20" fill="none" stroke="#8b949e" stroke-width="1.5"/>
+  <text x="520" y="354" text-anchor="middle" fill="#8b949e" font-size="11">终态</text>
+
+  <!-- 转换箭头 -->
+  <line x1="142" y1="222" x2="266" y2="222" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <text x="204" y="214" text-anchor="middle" fill="#d2a8ff" font-size="10">clicked</text>
+
+  <line x1="352" y1="222" x2="476" y2="222" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <text x="414" y="214" text-anchor="middle" fill="#d2a8ff" font-size="10">connected()</text>
+
+  <line x1="562" y1="256" x2="710" y2="256" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <text x="636" y="248" text-anchor="middle" fill="#d2a8ff" font-size="10">errorOccurred()</text>
+
+  <path d="M 698 270 Q 745 310 700 340 Q 640 370 548 345" fill="none" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <text x="660" y="330" fill="#d2a8ff" font-size="10">进入终态</text>
+
+  <!-- 引擎连线 -->
+  <line x1="100" y1="188" x2="290" y2="60" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="310" y1="188" x2="380" y2="60" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="520" y1="188" x2="470" y2="60" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="720" y1="188" x2="560" y2="60" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- 说明 -->
+  <text x="410" y="375" text-anchor="middle" fill="#8b949e" font-size="11">每个状态 (QState) 通过信号转换 (QSignalTransition) 连接 —— 引擎只负责调度</text>
+</svg>`;
+}
+
+function renderParallelSVG(){
+return `<svg width="750" height="320" viewBox="0 0 750 320">
+  <defs>
+    <marker id="arrowP" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#a371f7"/></marker>
+  </defs>
+
+  <!-- 根状态 -->
+  <rect x="285" y="8" width="180" height="36" rx="8" fill="#1c2128" stroke="#a371f7" stroke-width="2"/>
+  <text x="375" y="32" text-anchor="middle" fill="#a371f7" font-size="13" font-weight="bold">Root (ParallelStates)</text>
+
+  <!-- 分割线 -->
+  <line x1="375" y1="44" x2="375" y2="55" stroke="#a371f7" stroke-width="1.5"/>
+  <line x1="40" y1="55" x2="710" y2="55" stroke="#30363d" stroke-width="1" stroke-dasharray="5,3"/>
+  <line x1="375" y1="55" x2="375" y2="62" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- 连接组 -->
+  <rect x="25" y="68" width="340" height="235" rx="10" fill="none" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="195" y="90" text-anchor="middle" fill="#58a6ff" font-size="12" font-weight="bold">维度 1: 连接状态 (ExclusiveStates)</text>
+
+  <circle cx="80" cy="170" r="32" fill="#161b22" stroke="#3fb950" stroke-width="2"/>
+  <text x="80" y="166" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="bold">Discon.</text>
+  <text x="80" y="182" text-anchor="middle" fill="#8b949e" font-size="9">未连接</text>
+
+  <circle cx="195" cy="170" r="32" fill="#161b22" stroke="#d2991d" stroke-width="2"/>
+  <text x="195" y="166" text-anchor="middle" fill="#d2991d" font-size="11" font-weight="bold">Conn.</text>
+  <text x="195" y="182" text-anchor="middle" fill="#8b949e" font-size="9">连接中</text>
+
+  <circle cx="310" cy="170" r="32" fill="#161b22" stroke="#58a6ff" stroke-width="2"/>
+  <text x="310" y="166" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="bold">Connected</text>
+  <text x="310" y="182" text-anchor="middle" fill="#8b949e" font-size="9">已连接</text>
+
+  <line x1="112" y1="165" x2="161" y2="165" stroke="#a371f7" stroke-width="1.5" marker-end="url(#arrowP)"/>
+  <line x1="227" y1="165" x2="276" y2="165" stroke="#a371f7" stroke-width="1.5" marker-end="url(#arrowP)"/>
+
+  <!-- 认证组 -->
+  <rect x="385" y="68" width="340" height="235" rx="10" fill="none" stroke="#a371f7" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="555" y="90" text-anchor="middle" fill="#a371f7" font-size="12" font-weight="bold">维度 2: 认证状态 (ExclusiveStates)</text>
+
+  <circle cx="440" cy="170" r="32" fill="#161b22" stroke="#3fb950" stroke-width="2"/>
+  <text x="440" y="166" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="bold">Anonymous</text>
+  <text x="440" y="182" text-anchor="middle" fill="#8b949e" font-size="9">未登录</text>
+
+  <circle cx="555" cy="170" r="32" fill="#161b22" stroke="#d2991d" stroke-width="2"/>
+  <text x="555" y="166" text-anchor="middle" fill="#d2991d" font-size="11" font-weight="bold">LoggingIn</text>
+  <text x="555" y="182" text-anchor="middle" fill="#8b949e" font-size="9">登录中</text>
+
+  <circle cx="670" cy="170" r="32" fill="#161b22" stroke="#58a6ff" stroke-width="2"/>
+  <text x="670" y="166" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="bold">LoggedIn</text>
+  <text x="670" y="182" text-anchor="middle" fill="#8b949e" font-size="9">已登录</text>
+
+  <line x1="472" y1="165" x2="521" y2="165" stroke="#a371f7" stroke-width="1.5" marker-end="url(#arrowP)"/>
+  <line x1="587" y1="165" x2="636" y2="165" stroke="#a371f7" stroke-width="1.5" marker-end="url(#arrowP)"/>
+
+  <!-- 组合说明 -->
+  <text x="375" y="270" text-anchor="middle" fill="#d2a8ff" font-size="11">可能的状态组合</text>
+  <text x="375" y="292" text-anchor="middle" fill="#8b949e" font-size="11">如："已连接 + 登录中" 或 "连接中 + 未登录"</text>
+  <text x="375" y="312" text-anchor="middle" fill="#8b949e" font-size="10">两条维度线完全独立，互不阻塞</text>
+</svg>`;
+}
+
+function renderHistorySVG(){
+return `<svg width="750" height="340" viewBox="0 0 750 340">
+  <defs>
+    <marker id="arrowH" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#a371f7"/></marker>
+  </defs>
+
+  <!-- 主界面大框 -->
+  <rect x="20" y="15" width="420" height="305" rx="10" fill="none" stroke="#30363d" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="230" y="38" text-anchor="middle" fill="#c9d1d9" font-size="13" font-weight="bold">主界面组 (ExclusiveStates)</text>
+
+  <!-- 子状态 -->
+  <rect x="45" y="55" width="110" height="48" rx="6" fill="#161b22" stroke="#3fb950" stroke-width="2"/>
+  <text x="100" y="75" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="bold">🏠 首页</text>
+  <text x="100" y="92" text-anchor="middle" fill="#8b949e" font-size="10">Home</text>
+
+  <rect x="175" y="55" width="110" height="48" rx="6" fill="#161b22" stroke="#58a6ff" stroke-width="2"/>
+  <text x="230" y="75" text-anchor="middle" fill="#58a6ff" font-size="12" font-weight="bold">🔍 搜索</text>
+  <text x="230" y="92" text-anchor="middle" fill="#8b949e" font-size="10">Search</text>
+
+  <rect x="305" y="55" width="110" height="48" rx="6" fill="#161b22" stroke="#d2991d" stroke-width="2"/>
+  <text x="360" y="75" text-anchor="middle" fill="#d2991d" font-size="12" font-weight="bold">👤 个人</text>
+  <text x="360" y="92" text-anchor="middle" fill="#8b949e" font-size="10">Profile</text>
+
+  <!-- 历史状态节点 -->
+  <rect x="130" y="210" width="200" height="50" rx="25" fill="#1c2128" stroke="#a371f7" stroke-width="2" stroke-dasharray="4,2"/>
+  <text x="230" y="232" text-anchor="middle" fill="#a371f7" font-size="13" font-weight="bold">📋 HistoryState (Deep)</text>
+  <text x="230" y="250" text-anchor="middle" fill="#8b949e" font-size="10">记住退出前的子状态</text>
+
+  <!-- 连线 -->
+  <line x1="100" y1="103" x2="170" y2="210" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="230" y1="103" x2="230" y2="210" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="360" y1="103" x2="290" y2="210" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- 设置页 -->
+  <rect x="520" y="55" width="200" height="130" rx="8" fill="#161b22" stroke="#f85149" stroke-width="2"/>
+  <text x="620" y="78" text-anchor="middle" fill="#f85149" font-size="13" font-weight="bold">⚙ 设置页</text>
+  <text x="620" y="100" text-anchor="middle" fill="#8b949e" font-size="11">子页面...</text>
+  <line x1="535" y1="110" x2="705" y2="110" stroke="#30363d" stroke-width="1"/>
+  <text x="620" y="130" text-anchor="middle" fill="#8b949e" font-size="11">点击"返回"时：</text>
+  <text x="620" y="150" text-anchor="middle" fill="#8b949e" font-size="11">转到 HistoryState</text>
+  <text x="620" y="170" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="bold">→ 回到搜索页 ✓</text>
+
+  <!-- 转换箭头 -->
+  <line x1="420" y1="120" x2="518" y2="110" stroke="#a371f7" stroke-width="2" marker-end="url(#arrowH)"/>
+  <text x="469" y="108" text-anchor="middle" fill="#d2a8ff" font-size="10">打开设置</text>
+
+  <line x1="520" y1="160" x2="332" y2="225" stroke="#a371f7" stroke-width="2" marker-end="url(#arrowH)"/>
+  <text x="400" y="200" fill="#d2a8ff" font-size="10">返回 → HistoryState</text>
+
+  <!-- 提示 -->
+  <text x="375" y="335" text-anchor="middle" fill="#8b949e" font-size="11">设置 → 返回 始终回到上次在主页停留的子状态</text>
+</svg>`;
+}
+
+// ========== 交互演示逻辑 ==========
+
+// 红绿灯演示
+let tlStates = ['red','green','yellow'];
+let tlIcons = {red:'🔴',green:'🟢',yellow:'🟡'};
+let tlNames = {red:'红灯 — 停车',green:'绿灯 — 通行',yellow:'黄灯 — 减速'};
+let tlColors = {red:'#f85149',green:'#3fb950',yellow:'#d2991d'};
+let tlIdx = 0;
+let tlCount = 0;
+function tlUpdate(){
+  let s = tlStates[tlIdx];
+  document.getElementById('lightIcon').textContent = tlIcons[s];
+  document.getElementById('lightText').textContent = tlNames[s];
+  document.getElementById('lightText').style.color = tlColors[s];
+  document.getElementById('tlState').textContent = s;
+  document.getElementById('tlCount').textContent = tlCount;
+}
+function tlNext(){ tlIdx = (tlIdx+1)%3; tlCount++; tlUpdate(); }
+function tlReset(){ tlIdx=0; tlCount=0; tlUpdate(); }
+
+// 历史状态演示
+let hCurrent = 'home';
+let hInSettings = false;
+function hUpdateDisplay(){
+  ['Home','Search','Profile'].forEach(k=>{
+    let el = k==='Home'?document.getElementById('hActive'):
+             k==='Search'?document.getElementById('hOther1'):
+             document.getElementById('hOther2');
+    if(!el) return;
+    el.className = 'demo-state '+(hCurrent===k.toLowerCase()&&!hInSettings?'state-active':'state-idle');
+  });
+  document.getElementById('hBackBtn').disabled = !hInSettings;
+  let msg = hInSettings ? '📂 当前在设置页中...' : `📍 当前在主页 — ${hCurrent} 标签`;
+  document.getElementById('hMsg').textContent = msg;
+}
+function hSwitch(tab){
+  if(hInSettings) return;
+  hCurrent = tab;
+  hUpdateDisplay();
+  document.getElementById('hMsg').textContent = `✅ 已切换到 ${tab} 标签（记住此位置）`;
+}
+function hGoSettings(){
+  hInSettings = true;
+  hUpdateDisplay();
+  document.getElementById('hMsg').textContent = '⚙ 进入设置页 — 主界面子状态被 HistoryState 记住...';
+}
+function hGoBack(){
+  hInSettings = false;
+  hUpdateDisplay();
+  document.getElementById('hMsg').textContent = `↩ 通过 HistoryState 回到 "主页 → ${hCurrent}" 标签 ✓`;
+}
+
+// ========== 初始化 ==========
+renderNav();
+document.getElementById('content').innerHTML = renderPanels();
+tlUpdate();
+hUpdateDisplay();
+</script>
+</body>
+</html>
